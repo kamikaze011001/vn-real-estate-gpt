@@ -1,0 +1,9 @@
+[
+  { "id": "tan-long", "name": "Tân Long", "kind": "direct", "url": "https://bdstanlong.vn/lien-he-tl/", "accessMethod": "manual-submission" },
+  { "id": "onehousing", "name": "OneHousing", "kind": "licensed-feed", "url": "https://onehousing.vn/", "accessMethod": "licensed-feed" },
+  { "id": "batdongsan", "name": "Batdongsan.com.vn", "kind": "licensed-feed", "url": "https://batdongsan.com.vn/quy-dinh-su-dung", "accessMethod": "licensed-feed" },
+  { "id": "nhatot", "name": "Nhà Tốt", "kind": "licensed-feed", "url": "https://trogiup.chotot.com/nguoi-ban/dieu-khoan-su-dung-cua-nhatot-com/", "accessMethod": "licensed-feed" },
+  { "id": "voz", "name": "VOZ · Bất động sản", "kind": "forum", "url": "https://voz.vn/f/bat-dong-san.79/" },
+  { "id": "otofun", "name": "OTOFUN · Xây dựng – Bất động sản", "kind": "forum", "url": "https://www.otofun.net.vn/forums/xay-dung-bat-dong-san.284/" },
+  { "id": "hanoi-statistics", "name": "Thống kê Hà Nội", "kind": "official", "url": "https://thongkehanoi.nso.gov.vn/tinh-hinh-kinh-te-xa-hoi" }
+]

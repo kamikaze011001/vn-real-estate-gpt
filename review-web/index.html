@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nhà Hà Nội · Duyệt nguồn riêng tư</title>
+    <link rel="stylesheet" href="/review.css" />
+    <script src="/review.js" defer></script>
+  </head>
+  <body>
+    <header class="shell header"><div><span class="brand">Nhà Hà Nội</span><span class="pill">Riêng tư · localhost</span></div><button id="theme" class="quiet" aria-label="Đổi giao diện sáng tối">Sáng / tối</button></header>
+    <main class="shell">
+      <div class="intro"><p class="eyebrow">Nguồn đã thu thập</p><h1>Xem nguồn trước khi chọn nơi xem nhà</h1><p class="sub">Tin rao thực từ diễn đàn, chưa xác minh. Giá và thông số là lời nguồn; tình trạng còn bán, giấy tờ và quyền hiển thị chưa được xác nhận.</p></div>
+      <div class="notice"><strong>Bản duyệt nội bộ</strong><span>Dữ liệu này chưa xuất bản trong ChatGPT. Đối chiếu nguồn và các điểm chưa rõ trước khi sử dụng.</span></div>
+      <section class="toolbar" aria-label="Lọc tin nguồn"><label>Tìm dự án hoặc nội dung<input id="search" type="search" placeholder="Ví dụ: Mỹ Đình, Tân Việt…" /></label><label>Phạm vi<select id="scope"><option value="all">Tất cả tin giữ lại</option><option value="sale-candidates">Tin chào bán cần xác minh</option><option value="expired">Tin nguồn đã hết hạn</option><option value="needs-context">Cần làm rõ thêm</option></select></label><button id="refresh" class="quiet">Đọc lại dữ liệu</button></section>
+      <div class="result-line"><p id="count" role="status">Đang đọc nguồn…</p><span class="muted">Không có vị trí đã kiểm tra để đặt ghim bản đồ</span></div>
+      <div id="error" class="notice" role="alert" hidden></div>
+      <section id="selection" class="selection" aria-label="Tin đã chọn" hidden><div><strong id="selected-label"></strong><p id="selected-names"></p></div><div class="actions"><button id="clear" class="quiet">Bỏ chọn</button><button id="compare" class="primary" disabled>So sánh nguồn</button></div></section>
+      <section id="cards" class="cards" aria-label="Các tin nguồn" aria-busy="true"></section>
+      <div id="empty" class="empty" hidden><h2>Chưa có tin trong phạm vi này</h2><p>Thử đổi nội dung tìm hoặc bỏ bộ lọc. Tin hết thời hạn lưu sẽ tự rời bản duyệt.</p><button id="reset" class="quiet">Xóa bộ lọc</button></div>
+      <p class="footer">Lựa chọn chỉ nằm trong trang này. Không có thao tác xác nhận còn bán, duyệt quyền dùng hoặc xuất bản.</p>
+    </main>
+    <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title" tabindex="-1"></h2><button class="quiet" data-close="detail">Đóng</button></div><div id="detail-body"></div></dialog>
+    <dialog id="comparison" aria-labelledby="comparison-title"><div class="dialog-head"><h2 id="comparison-title" tabindex="-1">So sánh lời nguồn và phần còn thiếu</h2><button class="quiet" data-close="comparison">Đóng</button></div><p class="sub">Không tính chênh lệch khi tổng giá hoặc cách tính diện tích chưa rõ. Thông số dưới đây chưa được xác minh.</p><div id="comparison-body" class="table-scroll" tabindex="0" aria-label="Bảng so sánh có thể cuộn ngang"></div></dialog>
+  </body>
+</html>

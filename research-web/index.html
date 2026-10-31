@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhà Hà Nội · Nguồn tham khảo</title></head>
+<body>
+<main class="shell">
+  <header class="research-heading"><div><p class="eyebrow">Nguồn tham khảo · Chưa xác minh</p><h1>Tìm hiểu tin rao có nguồn</h1></div><button id="expand" class="quiet" hidden>Mở rộng</button></header>
+  <p class="sub">Liên kết nghiên cứu, chưa phải nguồn căn đã duyệt. Còn bán, hoàn thành, giấy tờ và đáp ứng yêu cầu của bạn đều chưa được xác nhận.</p>
+  <form id="filters" class="toolbar"><label>Tên dự án hoặc khu vực<input id="query" name="query" placeholder="Ví dụ: Mỹ Đình, Tân Việt…" maxlength="200"></label><label>Trạng thái nguồn<select id="scope" name="scope"><option value="all">Tất cả nguồn</option><option value="unverified">Chưa xác minh</option><option value="expired">Nguồn đánh dấu hết hạn</option></select></label><button class="quiet">Tìm nguồn</button></form>
+  <p id="status" role="status" class="note">Đang kết nối…</p><p id="error" role="alert" class="notice" hidden></p>
+  <section id="selection" class="selection" aria-label="Nguồn đã chọn" hidden><div><strong id="selected-label"></strong><p id="selected-names"></p></div><div class="actions"><button id="clear" class="quiet">Bỏ chọn</button><button id="compare" class="primary" disabled>So sánh nguồn</button></div></section>
+  <section id="list-panel"><div id="cards" class="cards" aria-label="Tin nguồn tham khảo" aria-busy="true"></div><div id="empty" class="empty" hidden><h2>Chưa có nguồn trong phạm vi này</h2><p>Đổi nội dung tìm hoặc mở lại đợt nghiên cứu. Tin thay đổi hoặc hết thời hạn sẽ rời kết quả; không thay bằng căn mô phỏng.</p><button id="reset" class="quiet">Xem tất cả nguồn</button></div></section>
+  <section id="detail-panel" hidden><button class="quiet" data-back>← Danh sách nguồn</button><h2 id="detail-title" tabindex="-1"></h2><div id="detail-body"></div></section>
+  <section id="comparison-panel" hidden><button class="quiet" data-back>← Danh sách nguồn</button><h2 id="comparison-title" tabindex="-1">Đối chiếu các nguồn đã chọn</h2><p class="sub">Giữ riêng giá trên m² và tổng giá chào. Không tính chênh lệch hoặc kết luận phù hợp khi thông tin chưa được xác nhận.</p><p class="note">Cuộn ngang để xem hết các nguồn.</p><div id="comparison-body" class="table-scroll" tabindex="0" aria-label="Bảng đối chiếu nguồn có thể cuộn ngang"></div></section>
+  <section id="chat-action" hidden><button id="ask" class="quiet">Nhờ ChatGPT nêu điểm cần xác minh</button><p id="delivery" role="status" class="note"></p></section>
+  <p class="footer">Thông số chỉ là biểu thức trong tin nguồn; có thể gồm phương án sửa phòng hoặc diện tích tiện ích. Chưa có tọa độ đã kiểm tra để đặt ghim.</p>
+</main><script type="module" src="/research.js"></script>
+</body></html>

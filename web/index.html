@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="vi" data-view="list" data-display="inline">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nhà Hà Nội · Bản thử</title>
+  </head>
+  <body>
+    <header class="local-brand"><span class="brand-mark" aria-hidden="true">⌂</span><strong>Nhà Hà Nội</strong><span>Bản thử</span></header>
+    <main>
+      <div class="results-heading">
+        <div><p class="eyebrow">Hà Nội · Căn hộ chuyển nhượng</p><h1 id="result-count" tabindex="-1" aria-live="polite">Đang tìm căn hộ…</h1></div>
+        <button id="saved-toggle" class="quiet" aria-pressed="false">Đã lưu <span id="saved-count">0</span></button>
+      </div>
+      <p class="demo-notice">Đang tải dữ liệu căn hộ…</p>
+      <button id="explore" class="quiet explore-action" hidden>Khám phá các căn ↗</button>
+      <div class="toolbar">
+        <div class="view-switch" role="group" aria-label="Cách xem kết quả"><button id="list-view" aria-pressed="true">Danh sách</button><button id="map-view" aria-pressed="false">Bản đồ</button><button id="compare-view" aria-pressed="false" disabled>So sánh</button></div>
+        <button id="filter-toggle" class="quiet" aria-expanded="false" aria-controls="filter-panel">Điều kiện</button>
+        <label class="sort-label"><span class="sr-only">Sắp xếp</span><select id="sort"><option value="price-asc">Giá tăng dần</option><option value="area-desc">Thông thủy lớn trước</option></select></label>
+      </div>
+      <p id="filter-summary" class="filter-summary"></p>
+      <section id="filter-panel" class="filter-panel" aria-label="Điều kiện tìm kiếm" hidden>
+        <form id="filters" class="filters">
+          <label class="search-label">Tên căn hoặc tòa nhà<input name="query" type="search" placeholder="Tên căn hoặc tòa bạn cần tìm" autocomplete="off" /></label>
+          <label>Khu vực<select name="district"><option value="">Tất cả khu vực</option><option>Cầu Giấy</option><option>Hà Đông</option><option>Long Biên</option><option>Nam Từ Liêm</option><option>Thanh Xuân</option><option>Tây Hồ</option></select></label>
+          <label>Ngân sách tối đa<select name="maxPriceVnd"><option value="">Không giới hạn</option><option value="3000000000">3 tỷ</option><option value="4000000000">4 tỷ</option><option value="5000000000">5 tỷ</option><option value="6000000000">6 tỷ</option></select></label>
+          <label>Phòng ngủ<select name="minBedrooms"><option value="">Tất cả</option><option value="1">Từ 1 phòng</option><option value="2">Từ 2 phòng</option><option value="3">Từ 3 phòng</option></select></label>
+          <label>Thông thủy tối thiểu<select name="minAreaM2"><option value="">Tất cả</option><option value="60">60 m²</option><option value="75">75 m²</option><option value="90">90 m²</option></select></label>
+          <div class="filter-actions"><button type="button" class="quiet" id="reset">Xóa điều kiện</button><button class="primary" type="submit">Áp dụng</button></div>
+        </form>
+      </section>
+      <div id="error" role="alert" hidden></div>
+      <section id="chat-handoff" class="chat-handoff" aria-label="Câu hỏi đã gửi đến ChatGPT" hidden>
+        <div class="handoff-heading"><strong id="chat-handoff-title"></strong><span id="chat-handoff-delivery"></span></div>
+        <p id="chat-handoff-scope"></p>
+        <details><summary>Xem câu hỏi</summary><p id="chat-handoff-prompt"></p></details>
+        <div class="handoff-actions"><button class="quiet" id="return-to-question">Xem lại các căn đã hỏi</button><button class="quiet" id="retry-question" hidden>Thử gửi lại</button></div>
+      </section>
+      <p id="chat-handoff-status" class="sr-only" role="status"></p>
+      <p id="context-status" class="context-status" role="status" hidden></p>
+      <section class="compare-bar" id="compare-bar" aria-label="Căn hộ đã chọn" hidden>
+        <div class="selection-info"><strong id="selection-label"></strong><div id="selection-homes"></div><span id="selection-status" role="status"></span></div>
+        <div class="selection-actions"><button class="quiet" id="clear-selection">Bỏ chọn</button><button class="primary" id="compare" disabled>So sánh</button></div>
+      </section>
+      <div class="explorer">
+        <section class="listing-panel" aria-label="Danh sách căn hộ"><div id="listings" class="cards" aria-busy="true"></div></section>
+        <aside class="map-panel" aria-label="Vị trí minh họa" hidden>
+          <div class="map-top"><div><strong>Vị trí minh họa</strong><span id="map-count"></span></div><button id="expand" class="quiet" hidden>Mở rộng ↗</button></div>
+          <div id="map" aria-label="Bản đồ căn hộ mô phỏng"></div>
+          <div class="map-caption">Chọn một mức giá để xem căn.<p id="map-status" role="status"></p></div>
+        </aside>
+      </div>
+      <section id="details" class="workspace-panel" aria-labelledby="detail-title" hidden>
+        <button class="quiet back-button" data-back>← Kết quả tìm kiếm</button>
+        <div id="detail-content"></div>
+      </section>
+      <section id="comparison" class="workspace-panel" aria-labelledby="comparison-title" hidden>
+        <button class="quiet back-button" data-back>← Kết quả tìm kiếm</button>
+        <p class="eyebrow">Căn hộ đã chọn</p><h2 id="comparison-title" tabindex="-1">So sánh để chọn nơi xem tiếp</h2>
+        <p id="comparison-disclaimer" class="muted">Dữ liệu mô phỏng · Diện tích thông thủy · Giá chào giả lập</p>
+        <div id="comparison-highlights" class="comparison-highlights"></div>
+        <label class="difference-toggle"><input type="checkbox" id="differences-only" /> Chỉ xem điểm khác biệt</label>
+        <p id="comparison-note" class="muted">Các thông tin chưa rõ luôn được giữ lại để kiểm tra.</p>
+        <div class="table-scroll" id="comparison-content" aria-live="polite"></div>
+        <div id="comparison-evidence"></div>
+        <div id="comparison-questions" class="context-questions" role="group" aria-label="Hỏi ChatGPT về các căn đã chọn" hidden>
+          <span>Trao đổi cùng ChatGPT</span><button id="ask-chatgpt" class="quiet">Giải thích đánh đổi</button><button id="ask-comparison-verify" class="quiet">Cần xác minh gì?</button>
+        </div>
+      </section>
+      <p id="result-description" class="result-note"></p>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

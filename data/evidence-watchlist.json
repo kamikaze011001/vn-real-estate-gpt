@@ -1,0 +1,23 @@
+[
+  {
+    "sourceId": "voz",
+    "title": "Tổng hợp thông tin BĐS Miền Bắc",
+    "url": "https://voz.vn/t/thao-luan-tong-hop-thong-tin-bds-mien-bac.1138291/",
+    "status": "internal-discovery-only",
+    "nextStep": "Find a specific dated post relevant to a pilot project, verify its scope, and clear intended use before staging a summary."
+  },
+  {
+    "sourceId": "otofun",
+    "title": "Vin Smart City thế nào",
+    "url": "https://www.otofun.net.vn/threads/vin-smart-city-the-nao.1746464/",
+    "status": "internal-discovery-only",
+    "nextStep": "Resolve the exact subdivision/building and recent relevant post; the thread began in 2021. Confirm intended use."
+  },
+  {
+    "sourceId": "otofun",
+    "title": "Sống tại Vinhome Ocean park",
+    "url": "https://www.otofun.net.vn/threads/song-tai-vinhome-ocean-park.1772825/",
+    "status": "internal-discovery-only",
+    "nextStep": "Resolve the exact project/phase and dated post; historical experiences and costs are not current project-wide facts. Confirm intended use."
+  }
+]

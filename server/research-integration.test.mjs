@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { researchFixture } from './test-support/research-fixture.mjs';
+
+test('HTTP/MCP research keeps safe projection, resource, context and inventory identities separate', { timeout: 15000 }, async t => {
+  const f = researchFixture();
+  const child = spawn(process.execPath, ['server/index.mjs'], { env: { ...process.env, INVENTORY_MODE: 'demo', RESEARCH_LINKS_ENABLED: '1', RESEARCH_DB: f.dbPath, RESEARCH_LINKS_MANIFEST: f.manifestPath, HOST: '127.0.0.1', PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const client = new Client({ name: 'research-integration', version: '1.0.0' });
+  let logs = ''; child.stderr.on('data', data => { logs += data; });
+  t.after(async () => { await client.close(); if (child.exitCode == null) { const stopped = once(child, 'exit'); child.kill(); await stopped; } f.cleanup(); });
+  const origin = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Research server did not start: ${logs}`)), 5000);
+    child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited: ${code}`)); });
+    child.stdout.on('data', data => { const match = String(data).match(/http:\/\/localhost:(\d+)/); if (match) { clearTimeout(timer); resolve(`http://127.0.0.1:${match[1]}`); } });
+  });
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`)));
+  const tools = (await client.listTools()).tools;
+  assert.ok(tools.find(tool => tool.name === 'search_research_leads').outputSchema.properties.researchOnly);
+  assert.equal(tools.find(tool => tool.name === 'search_research_leads')._meta?.ui?.resourceUri, undefined);
+  assert.equal(tools.find(tool => tool.name === 'show_research_explorer')._meta.ui.resourceUri, 'ui://hanoi-home/research-v1.html');
+  assert.deepEqual(tools.find(tool => tool.name === 'set_research_selection')._meta.ui.visibility, ['app']);
+  const call = async (name, args = {}) => { const result = await client.callTool({ name, arguments: args }); if (result.isError) throw new Error(result.content[0].text); return result.structuredContent; };
+  assert.equal((await call('search_research_leads', { query: 'my dinh' })).total, 3);
+  const initial = await call('show_research_explorer');
+  const ids = initial.leads.slice(0, 2).map(lead => lead.id), session = initial.researchSessionId;
+  await call('set_research_selection', { researchSessionId: session, ids, focusedLeadId: ids[0], view: 'details' });
+  assert.equal((await call('get_research_context', { researchSessionId: session })).focusedLeadId, ids[0]);
+  const comparison = await call('compare_research_leads', { researchSessionId: session });
+  assert.deepEqual(comparison.leads.map(lead => lead.id), ids);
+  for (const lead of comparison.leads) { assert.equal(lead.priceVnd, null); assert.equal(lead.requirementsVerified, false); }
+  for (const secret of ['PRIVATE BODY', 'CONTACT SECRET', 'PRIVATE AUTHOR', 'sourceItemId', 'fingerprint']) assert.ok(!JSON.stringify(comparison).includes(secret));
+  assert.equal((await call('search_properties')).demo, true);
+  await assert.rejects(call('get_property', { id: ids[0] }), /Không tìm thấy/);
+  const resource = await client.readResource({ uri: 'ui://hanoi-home/research-v1.html' });
+  assert.ok(resource.contents[0].mimeType.includes('mcp-app'));
+  assert.ok(resource.contents[0].text.includes('get_research_context'));
+  assert.ok(!resource.contents[0].text.includes('PRIVATE BODY'));
+  for (const path of ['/private-data/research-links.json', '/private-data/forum-crawl.sqlite']) assert.equal((await fetch(origin + path)).status, 404);
+  assert.equal((await fetch(origin + '/research')).status, 200);
+  const invalid = await fetch(origin + '/api/research/show', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maxPriceVnd: 4e9 }) });
+  assert.equal(invalid.status, 400, 'unsupported hard matching is not silently accepted');
+  f.db.prepare('DELETE FROM item WHERE id=?').run('otofun:1:post-1');
+  assert.deepEqual((await call('get_research_context', { researchSessionId: session })).selectedLeadIds, [ids[1]]);
+  await assert.rejects(call('compare_research_leads', { researchSessionId: session }), /Chọn/);
+});

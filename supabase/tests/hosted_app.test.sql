@@ -1,0 +1,17 @@
+begin;
+select plan(12);
+select has_table('public', 'app_sessions', 'temporary sessions exist');
+select has_table('public', 'research_sources', 'minimal research projection exists');
+select is(has_table_privilege('anon', 'public.app_sessions', 'select'), false, 'anon cannot read sessions');
+select is(has_table_privilege('authenticated', 'public.app_sessions', 'select'), false, 'signed-in browser cannot read sessions');
+select is(has_table_privilege('anon', 'public.research_sources', 'select'), false, 'anon cannot bypass the MCP projection');
+select is(has_function_privilege('anon', 'public.commit_app_session(text,uuid,bigint,jsonb,timestamptz)', 'execute'), false, 'anon cannot change sessions');
+select is(has_function_privilege('authenticated', 'public.replace_research_sources(jsonb)', 'execute'), false, 'browser cannot publish research');
+select ok(public.commit_app_session('explorer', '11111111-1111-4111-8111-111111111111', null, '{"ids":[]}', now() + interval '1 hour'), 'create once');
+select ok(not public.commit_app_session('explorer', '11111111-1111-4111-8111-111111111111', null, '{"ids":["wrong"]}', now() + interval '1 hour'), 'duplicate create rejected');
+select ok(public.commit_app_session('explorer', '11111111-1111-4111-8111-111111111111', 1, '{"ids":["demo-05"]}', now() + interval '1 hour'), 'versioned update succeeds');
+select ok(not public.commit_app_session('explorer', '11111111-1111-4111-8111-111111111111', 1, '{"ids":["wrong"]}', now() + interval '1 hour'), 'stale version cannot overwrite');
+update public.app_sessions set expires_at = now() - interval '1 second' where id = '11111111-1111-4111-8111-111111111111';
+select ok(not public.commit_app_session('explorer', '11111111-1111-4111-8111-111111111111', 2, '{"ids":[]}', now() + interval '1 hour'), 'expired sessions cannot be revived by update');
+select * from finish();
+rollback;

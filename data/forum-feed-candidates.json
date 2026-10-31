@@ -1,0 +1,38 @@
+[
+  {
+    "sourceId": "voz",
+    "role": "property-discussion-and-lead-discovery",
+    "discoveryPage": "https://voz.vn/f/bat-dong-san.79/",
+    "feedUrl": "https://voz.vn/f/bat-dong-san.79/index.rss",
+    "technicalCheckedAt": "2026-10-25T16:18:11Z",
+    "permission": "pending",
+    "collectionEnabled": true,
+    "scopeLimit": "Includes non-Hanoi and non-Northern topics; does not establish live inventory.",
+    "scheduledCollectionEnabled": false,
+    "collectionScope": "user-requested bounded public crawl into private review inbox"
+  },
+  {
+    "sourceId": "otofun",
+    "role": "project-community-discovery",
+    "discoveryPage": "https://www.otofun.net.vn/forums/xay-dung-bat-dong-san.284/",
+    "feedUrl": "https://www.otofun.net.vn/forums/xay-dung-bat-dong-san.284/index.rss",
+    "technicalCheckedAt": "2026-10-25T16:18:11Z",
+    "permission": "pending",
+    "collectionEnabled": true,
+    "scopeLimit": "Discussion and news; exact dated claim and project/building scope still require review.",
+    "scheduledCollectionEnabled": false,
+    "collectionScope": "user-requested bounded public crawl into private review inbox"
+  },
+  {
+    "sourceId": "otofun",
+    "role": "external-supplier-lead-discovery",
+    "discoveryPage": "https://www.otofun.net.vn/forums/cho-bat-dong-san.423/",
+    "feedUrl": "https://www.otofun.net.vn/forums/cho-bat-dong-san.423/index.rss",
+    "technicalCheckedAt": "2026-10-25T16:18:11Z",
+    "permission": "pending",
+    "collectionEnabled": true,
+    "scopeLimit": "Mixed sale/rental/offers/requests. Publication needs an original authorized submission and freshness checks.",
+    "scheduledCollectionEnabled": false,
+    "collectionScope": "user-requested bounded public crawl into private review inbox"
+  }
+]
