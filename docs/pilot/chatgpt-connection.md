@@ -1,20 +1,24 @@
 # ChatGPT app connections
 
-Setup checked on 25 October 2026 for the app **Nhà Hà Nội (Demo)**.
+Stable hosting and connection checked on 1 November 2026. Earlier development checks are retained below.
 
-**Current status (1 November 2026):** **Nhà Hà Nội · Nguồn & Demo** is connected at the `2c68` development endpoint. Its seven-source research flow passed hosted selection, conversational comparison and contextual-question checks. Historical demo-host results below apply to the earlier connection, whose public URL has expired.
+**Current status (1 November 2026):** **Nhà Hà Nội** is connected at **https://vn-real-estate-gpt.vercel.app/mcp**. Brave actual-host tests passed for seven-source research selection/comparison and demo map selection/comparison without typed IDs. The stable app uses Supabase-backed temporary sessions and does not require ngrok. Earlier tunnel results are historical.
 
 ## Endpoint and runtime
 
 - Local preview: http://localhost:8787
 - Local MCP: http://localhost:8787/mcp
-- Temporary public MCP: https://2c68-103-238-69-196.ngrok-free.app/mcp
+- Stable public MCP: https://vn-real-estate-gpt.vercel.app/mcp
+- Stable app: https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe
+- Historical development MCP: https://2c68-103-238-69-196.ngrok-free.app/mcp
 - Historical public MCP (offline): https://3c83-103-238-69-197.ngrok-free.app/mcp
 - Authentication: none; the running server exposes fictional demo inventory plus the separate minimal source-link research projection. App-only writes update temporary explorer/research context, not listing or account data.
 
-Keep the local server and ngrok running. Restarting ngrok may produce a different URL. If the app settings have no endpoint editor, create a replacement connection and verify it before retiring the previous app. This setup is for development, not a permanent public deployment.
+The stable app runs independently of the operator machine. For a separate local development connection, run the local server and ngrok together; restarting ngrok may produce a different URL. If app settings have no endpoint editor, create and verify a replacement connection. Development tunnels are temporary. Stable hosting remains an unauthenticated pilot with demo inventory and unverified source links, not an approved real-inventory service.
 
-## Observed status
+## Historical development checks
+
+### Observed status
 
 The public endpoint successfully completed MCP initialization and tool discovery. A search for at least two bedrooms with a maximum asking price of 4 billion VND returned demo-05, demo-03, demo-01, and demo-08. The UI resource was readable as `text/html;profile=mcp-app`.
 
@@ -87,7 +91,7 @@ Continuity regression conversation: https://chatgpt.com/c/6addc8fd-6a60-83ec-bc3
 
 The initial hosted test rendered correctly but failed conversational comparison: ChatGPT said it had not received the selected IDs. Standard model-context updates and optional widget-state compatibility alone did not resolve this in the tested host.
 
-The current implementation also writes selections and explorer context to a temporary server-side session. The visual tool returns its session ID to the model, and context tools let ChatGPT read the current state before responding. Session writes are serialized in the widget. The repeated hosted tests above passed after this change. Sessions expire after one hour without context updates and are lost on server restart.
+The current implementation also writes selections and explorer context to a temporary server-side session. The visual tool returns its session ID to the model, and context tools let ChatGPT read the current state before responding. Session writes are serialized in the widget. The repeated hosted tests above passed after this change. Sessions expire after one hour without context updates. The original local-memory implementation lost sessions on restart; the current hosted Supabase implementation survives Vercel instance replacement.
 
 ### Comparison and contextual-question enhancement
 
@@ -173,7 +177,7 @@ Host rendering and behavior were inspected through accessibility state. The new 
 
 Research-host test conversation: https://chatgpt.com/c/6ae6233b-edb4-83ec-89e3-74bd11d56c91
 
-### Vercel/Supabase preparation (1 November 2026)
+### Stable Vercel/Supabase hosting (1 November 2026)
 
 The user requested new Vercel/Supabase projects and CI/CD. The repo now has pinned CLIs, a serverless entry point, Vercel routing/artifact exclusions, service-only Supabase schema and compare-and-set session persistence, a reviewed minimal research sync, and a checks-before-production GitHub Actions workflow. See [deployment operations](deployment.md) and `npm run setup:deploy` for the account/secret steps. Browser setup uses Brave; Chrome is reserved for the user's personal use.
 
@@ -181,17 +185,26 @@ Local validation for this hosting change: both widgets rebuild, syntax checks pa
 
 Vercel configuration was checked against the current official schema after normalizing three unrelated vendor-schema keywords from newer draft syntax to the schema's declared Draft 4. Workflow YAML parses; shell syntax checks pass. ShellCheck passes the authored code with SC1087/SC2329 excluded for the unchanged wizard library's prompt-string/unused-helper diagnostics. Runtime dependency audit has zero reported vulnerabilities. The current Vercel CLI dependency tree still has development-only advisory findings; the lockfile overrides its affected `tar` dependency to 7.5.22. No forced downgrade or unrelated runtime dependency replacement was applied.
 
-Cloud authentication/project linking, the first GitHub push/workflow run, a Vercel build/deployment and a new actual-ChatGPT-host regression are not complete yet. The setup wizard is prepared and the user said they would run it; no local deployment credential file/project link was present at the last check. The existing `2c68` tunnel app and its earlier hosted results remain separate from this pending stable deployment. No private source body or SQLite database was uploaded to Supabase or Vercel.
+Both cloud projects are linked, six GitHub CI secret names are configured, and the public `APP_BASE_URL` repository variable targets the canonical Vercel URL. The user corrected the scoped Supabase token and database password; cloud migrations and the seven-source minimal sync completed. No private source body, contact, reply, manifest or SQLite database was uploaded. The user connected their GitHub identity to Vercel for commit-author verification and manually bootstrapped `main` as required by the global pre-push guard. No guard was disabled or bypassed by the agent. Subsequent changes use checked feature-branch pull requests.
 
-After the user completed setup, both project links and all six CI secret names were verified. The actual Vercel production artifact built successfully; scans of the repository candidates and 657 artifact files found no deployment credentials, private source directories or SQLite databases. The first setup-branch GitHub run passed both App checks and Database/hosted-state checks: https://github.com/kamikaze011001/vn-real-estate-gpt/actions/runs/41230296180 . Production was correctly skipped for this branch.
+The first production run exposed a prebuilt-upload exclusion of the widget HTML. [PR #1](https://github.com/kamikaze011001/vn-real-estate-gpt/pull/1) corrected packaging. [The next main run](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/runs/41232118572) successfully applied migrations and deployed/promoted Vercel, but failed afterward because its readiness parser expected the local native CLI's JSON envelope rather than Linux's output. The follow-up removes that parser: the CLI exit status gates the deployment step, and the existing protocol smoke checks the public canonical `APP_BASE_URL`. Protected per-deployment URLs are not used for public checks. The [workflow](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/workflows/ci.yml) is the release verification record; a deployed URL alone does not establish a passing release.
 
-The scoped Supabase token initially lacked Connection Pooling Read; the user updated it and IPv4 pooler discovery now succeeds. The saved database password is rejected even with the CLI's explicit password flag, so a focused hidden-input correction is pending. The global pre-push guard rejected the agent's initial main push and explicitly reserves bypass for a human by hand. Code was instead published to `setup/initial-deployment`; no guard was disabled. The first production release requires corrected database authentication and the user's one-time main bootstrap. The existing ChatGPT tunnel connection is still the last verified actual-host endpoint.
+Stable-endpoint verification is separate from the earlier local and tunnel evidence:
+
+- **Local/database:** the build, 43 regular Node tests, 39 Python tests, 12 PostgreSQL checks and separate three-process hosted-state test described above passed.
+- **Public protocol:** `EXPECT_HOSTED=1 npm run deploy:smoke -- https://vn-real-estate-gpt.vercel.app` passed with `sessionBackend: supabase`, seven sources, both embedded resources, demo selection/comparison and research comparison resolved from session IDs.
+- **Actual ChatGPT host in Brave:** the user approved creating/connecting **Nhà Hà Nội**, including relevant-chat/enabled-memory sharing with the stable endpoint. A fresh conversation rendered all seven sources with expired/unverified labels. Selecting Samsora Vạn Phúc and CT1A-ĐN1/Mỹ Đình II showed **ChatGPT đã nhận lựa chọn**. A composer request without source IDs identified that pair, linked original OTOFUN posts and publication dates, and preserved unknown availability, completion and legal status. The answer distinguished the `78 triệu /m²` rate from an unconfirmed total; it also calculated a clearly conditional reference total, not a confirmed asking price or requirement match.
+- **Demo map-to-chat:** in the same conversation, a maximum-4-billion-VND / at-least-two-bedroom demo search returned four fictional homes. Selecting demo-05 through its 2.8-billion map pin and demo-03 through its 3.2-billion pin synchronized successfully. In-app comparison showed 400 million VND / 3 m² differences. A composer request without IDs identified those exact two demo homes, retained the requirements and fictional labels, and did not reuse the research selections. Expanded comparison and the system composer remained accessible.
+
+Stable-host conversation: https://chatgpt.com/c/6ae63a8e-20cc-83ec-940e-eb80f5f1fd94
+
+These hosted checks used accessibility state. Minimum-width visual inspection, physical mobile safe areas, forced send failures/retries, a complete keyboard/screen-reader pass and multi-user load were not repeated for the stable deployment. Earlier local layout evidence remains separate. The cloud source snapshot updates only after a reviewed manual sync; expiry is checked on each operation. This is stable pilot hosting, not verified listings or an automatic market feed.
 
 ### Earlier demo verification limits
 
 A separate [private lead-review preview](private-lead-preview.md) is available only on `http://127.0.0.1:8790`. It renders retained unverified forum ads for local operator inspection and has no `/mcp`, publication actions or tunnel. This is not a second ChatGPT connection and does not change this connection's demo inventory, v12 resource or selection mechanism. Its local browser and regression results are recorded separately; they do not establish a real-inventory ChatGPT-host pilot.
 
-Earlier demo build/syntax checks and 31 automated tests passed; the current 36-test research revision is recorded above. Earlier local browser checks covered saving, empty search results, and a 390-pixel viewport; those demo cases have not all been repeated for the latest research revision. Hosted light mode, physical mobile-device safe areas, forced send failures/retry, and a complete keyboard/screen-reader pass remain unverified. This verifies the prototype and source-link research flow, not approved live inventory, real market insights, multi-user production operation, or permanent hosting.
+Earlier demo build/syntax checks and 31 automated tests passed; the earlier 36-test research revision is recorded above. Earlier local browser checks covered saving, empty search results, and a 390-pixel viewport; those demo cases have not all been repeated for the latest research revision. Hosted light mode, physical mobile-device safe areas, forced send failures/retry, and a complete keyboard/screen-reader pass remain unverified. This verifies the prototype and source-link research flow, not approved live inventory, real market insights, multi-user production operation, or a production-ready public market service.
 
 Current official setup: [Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt).
 
