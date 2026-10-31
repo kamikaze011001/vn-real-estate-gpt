@@ -22,7 +22,8 @@
     "deploy:smoke": "node scripts/deploy-smoke.mjs",
     "test:hosted": "node scripts/test-hosted.mjs",
     "setup:deploy": "bash scripts/setup-deployment.sh",
-    "setup:supabase-token": "bash scripts/update-supabase-token.sh"
+    "setup:supabase-token": "bash scripts/update-supabase-token.sh",
+    "setup:supabase-password": "bash scripts/update-supabase-password.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^2.0.3",

@@ -44,6 +44,8 @@ Only passing `main` pushes or a manual run on `main` deploy production. Required
 
 For the first release, finish account setup, confirm repository contents exclude private/credential files, and commit/push the reviewed project. Observe both check jobs and production deployment. The current checkout initially had no commits and GitHub credentials were expired; local workflow files alone do not activate hosted CI. A failed smoke check marks the release failed but does not automatically undo schema changes or traffic promotion.
 
+The machine's global pre-push guard blocks remote `main`/`master` pushes and explicitly reserves its bypass for a human by hand. Respect that guard: publish/check a setup branch first. Bootstrapping an empty repository's `main` requires the user to perform the one-time main push themselves; do not bypass it through another API or alter the hook. The secret scan must pass before handoff. For credential corrections, `npm run setup:supabase-token` checks the additional Connection Pooling Read permission needed for IPv4 discovery, and `npm run setup:supabase-password` verifies the project database password with a dry run before updating its CI secret.
+
 After the first schema deployment, publish the seven curated source summaries from this operator machine:
 
 ```sh
