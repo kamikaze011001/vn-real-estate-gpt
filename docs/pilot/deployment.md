@@ -1,6 +1,6 @@
 # Vercel and Supabase deployment
 
-The requested target is a new Vercel project and a new Supabase project for this app. The app remains an interactive-decoupled MCP app: existing tools, resource IDs, widgets and ChatGPT bridge behavior are retained. This work prepares stable hosting; it does not submit an app to the public directory or approve real inventory.
+The app is hosted at https://vn-real-estate-gpt.vercel.app with Supabase-backed sessions and seven minimal research source projections. The app remains an interactive-decoupled MCP app: existing tools, resource IDs, widgets and ChatGPT bridge behavior are retained. This work prepares stable hosting; it does not submit an app to the public directory or approve real inventory.
 
 ## Runtime boundary
 
@@ -34,19 +34,21 @@ The wizard creates/links `vn-real-estate-gpt` on Vercel, configures its runtime 
 | `SUPABASE_PROJECT_REF` | New Supabase project's reference |
 | `SUPABASE_DB_PASSWORD` | Apply schema migrations |
 
+The public repository variable `APP_BASE_URL` is set to `https://vn-real-estate-gpt.vercel.app`; the release smoke test uses it after the CLI deployment succeeds. Vercel sign-in methods must include the GitHub identity that authors commits, so its Hobby owner check can associate the author with this project.
+
 `SUPABASE_SECRET_KEY` is stored in Vercel's secret environment settings and the local ignored setup file, not GitHub's deployment secrets or frontend assets. Prefer a modern `sb_secret_` key dedicated to this backend. The setup script neither deploys nor pushes Git, and never upgrades a plan. If the desired free capacity is unavailable, stop and resolve the project/plan choice before creating paid resources.
 
 ## Checks and release
 
 The single workflow `.github/workflows/ci.yml` runs app and database jobs for pull requests and pushes. App checks build both widgets, run Node/Python tests and audit runtime dependencies. The database job starts an isolated local Supabase stack, applies migrations, checks table/function permissions and compare-and-set behavior, then exercises MCP against independent Node instances backed by the real API/database. Local Auth remains enabled because the current CLI omits test API keys when Auth is disabled; no buyer signup flow is added.
 
-Only passing `main` pushes or a manual run on `main` deploy production. Required secrets must exist, and a stale revision is rejected before migration. The deployment job links Supabase, applies migrations, pulls Vercel production configuration, builds and uploads the artifact, then checks health, tool discovery, resources and selection comparison. Production jobs serialize; schema changes must stay compatible with the previous app until deployment finishes. Fork pull requests receive no deployment secrets, and there is no production-backed preview environment.
+Only passing `main` pushes or a manual run on `main` deploy production. Required secrets must exist, and a stale revision is rejected before migration. The deployment job links Supabase, applies migrations with explicit `--linked`, pulls Vercel production configuration, builds and uploads the artifact, then checks health, tool discovery, resources and selection comparison against `APP_BASE_URL`. Deployment JSON output is retained only in the runner temporary directory; the pipeline does not rely on its platform-specific shape. Production jobs serialize; schema changes must stay compatible with the previous app until deployment finishes. Fork pull requests receive no deployment secrets, and there is no production-backed preview environment.
 
-For the first release, finish account setup, confirm repository contents exclude private/credential files, and commit/push the reviewed project. Observe both check jobs and production deployment. The current checkout initially had no commits and GitHub credentials were expired; local workflow files alone do not activate hosted CI. A failed smoke check marks the release failed but does not automatically undo schema changes or traffic promotion.
+The initial account setup, repository publication and first production deployment are complete. For each release, confirm repository contents exclude private/credential files, merge a reviewed feature branch, and observe both check jobs and production deployment. A failed smoke check marks the release failed but does not automatically undo schema changes or traffic promotion.
 
 The machine's global pre-push guard blocks remote `main`/`master` pushes and explicitly reserves its bypass for a human by hand. Respect that guard: publish/check a setup branch first. Bootstrapping an empty repository's `main` requires the user to perform the one-time main push themselves; do not bypass it through another API or alter the hook. The secret scan must pass before handoff. For credential corrections, `npm run setup:supabase-token` checks the additional Connection Pooling Read permission needed for IPv4 discovery, and `npm run setup:supabase-password` verifies the project database password with a dry run before updating its CI secret.
 
-After the first schema deployment, publish the seven curated source summaries from this operator machine:
+The initial schema and seven-source projection are deployed. For later reviewed source updates, publish from this operator machine:
 
 ```sh
 npm run research:sync

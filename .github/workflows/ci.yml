@@ -67,6 +67,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      APP_BASE_URL: ${{ vars.APP_BASE_URL }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -77,8 +78,8 @@ jobs:
       - name: Verify deployment configuration
         shell: bash
         run: |
-          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
-            if [[ -z "${!name}" ]]; then echo "Missing GitHub secret: $name"; exit 1; fi
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD APP_BASE_URL; do
+            if [[ -z "${!name}" ]]; then echo "Missing deployment setting: $name"; exit 1; fi
           done
       - name: Avoid deploying an outdated main revision
         shell: bash
@@ -98,21 +99,11 @@ jobs:
       - name: Build the Vercel deployment
         run: npm exec -- vercel build --prod --token="$VERCEL_TOKEN"
       - name: Deploy the checked artifact
-        id: deploy
         shell: bash
         run: |
           npm exec -- vercel deploy --prebuilt --prod --json --token="$VERCEL_TOKEN" > /tmp/vercel-deployment.json
-          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
-          import { readFileSync } from 'node:fs';
-          const result = JSON.parse(readFileSync('/tmp/vercel-deployment.json', 'utf8'));
-          if (result.status !== 'ok' || result.deployment?.readyState !== 'READY') throw new Error('Production deployment is not ready.');
-          const url = new URL(result.deployment.productionUrl);
-          if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Invalid production URL.');
-          console.log(`url=${url.origin}`);
-          JS
       - name: Verify health, MCP, resources and persisted selection comparison
         env:
           EXPECT_HOSTED: '1'
-          APP_BASE_URL: ${{ steps.deploy.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run deploy:smoke

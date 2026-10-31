@@ -27,6 +27,10 @@ The map uses Leaflet and OpenStreetMap tiles with visible attribution and a usab
 
 ## Connect to ChatGPT
 
+Use the hosted [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe) or the [browser preview](https://vn-real-estate-gpt.vercel.app). Stable MCP endpoint: **https://vn-real-estate-gpt.vercel.app/mcp**. The hosted pilot uses Supabase and runs independently of the local server/tunnel. Inventory is still fictional; research links are unverified.
+
+The following steps are for a separate local development connection.
+
 Streamable HTTP endpoint: **http://localhost:8787/mcp**. No OpenAI API key is needed: ChatGPT provides the conversational model and calls the tools.
 
 1. Run the server. For local testing, run `ngrok http http://localhost:8787` in another terminal and append `/mcp` to the generated HTTPS URL. Keep both processes running. A tunnel is temporary and is not a production deployment.
@@ -47,11 +51,11 @@ Streamable HTTP endpoint: **http://localhost:8787/mcp**. No OpenAI API key is ne
 
 The component uses the MCP Apps bridge for tool calls, context, and follow-up messages, with optional ChatGPT widget-state compatibility. A send-to-chat action shows an in-app confirmation and an expandable copy of its exact question. The tested ChatGPT host adds the answer to the current assistant response instead of displaying a new user-message bubble; testing its optional `sendFollowUpMessage` alias produced the same behavior, so the standard bridge remains the primary path. Selected/saved IDs, the open property, applied filters, and the active view are also recorded in a temporary explorer session. ChatGPT reads `get_explorer_context` before answering “căn đang xem” or refining a UI-edited search. `get_selected_properties` remains available for comparison. Both search and render tools accept the existing `explorerSessionId` and inherit unchanged filters; `clearFilters` explicitly removes requirements. The render tool can request `view: "details"` with `focusedListingId`, or `view: "comparison"`, so chat can lead back into the relevant UI.
 
-Sessions expire after one hour without context updates and disappear when the server restarts. They are separate from account storage and contain no chats or memories. Widgets restore presentation preferences from compatible widget state and hydrate property identities from the server snapshot. UI writes are serialized, and send-to-chat actions await the latest context write. Scripts and styles are embedded in the resource; its CSP permits map tile images from `https://tile.openstreetmap.org`. Data-only calls do not attach a new widget.
+Sessions expire after one hour without context updates. Local memory sessions disappear on restart; hosted Supabase sessions survive Vercel instance replacement. They are separate from account storage and contain no chats or memories. Widgets restore presentation preferences from compatible widget state and hydrate property identities from the server snapshot. UI writes are serialized, and send-to-chat actions await the latest context write. Scripts and styles are embedded in the resource; its CSP permits map tile images from `https://tile.openstreetmap.org`. Data-only calls do not attach a new widget.
 
 An active fullscreen explorer checks its session revision every eight seconds and refreshes after chat changes. This keeps an existing expanded view aligned when ChatGPT renders a new inline result. Passive refreshes never write back, and they pause during filter editing, pending writes, searches, and message sending. The area filter is directly editable, including areas selected through chat. Inline history widgets do not poll.
 
-The demo was connected and tested in ChatGPT. Hosted search, cards, map rendering, and conversational comparison of widget selections were verified. Its old development endpoint has since expired. See [the ChatGPT connection record](docs/pilot/chatgpt-connection.md) for the app link, endpoint status, evidence, and validation limits.
+The stable hosted app is connected in ChatGPT and has passed source-card and demo-map selection/comparison checks in Brave. Earlier demo-host checks are retained as historical evidence. See [the ChatGPT connection record](docs/pilot/chatgpt-connection.md) for the app link, endpoint status, evidence, and validation limits.
 
 ## Crawled source-link research
 
@@ -67,7 +71,7 @@ Open **http://127.0.0.1:8787/research**. `npm run build` builds both embedded wi
 
 Research tools are `search_research_leads`, `get_research_context`, `compare_research_leads`, widget-only `set_research_selection`, and `show_research_explorer` (resource `ui://hanoi-home/research-v1.html`). The research session preserves selected/focused source identities so comparisons can use the session without typed IDs. Research IDs never work as property IDs. Numeric matching and a research map are unavailable because the source expressions and coordinates have not been verified.
 
-The research integration has passed local UI, public MCP and actual ChatGPT checks: source cards render, widget selections reach ChatGPT, and a comparison request without typed IDs identifies the selected sources with original links, dates and unknowns. Use [Nhà Hà Nội · Nguồn & Demo](https://chatgpt.com/plugins/plugin_asdk_app_6ae622f726fc8191929b62853ccd1773). Its development tunnel is temporary; keep the server and ngrok running. See [research integration and operating limits](docs/pilot/chatgpt-research-integration.md) and the connection record for evidence and remaining checks.
+The research integration has passed local UI, public MCP and actual ChatGPT checks: source cards render, widget selections reach ChatGPT, and a comparison request without typed IDs identifies the selected sources with original links, dates and unknowns. Use the stable [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe). Its Vercel endpoint uses Supabase; no development tunnel is required. See [research integration and operating limits](docs/pilot/chatgpt-research-integration.md) and the connection record for evidence and remaining checks.
 
 ## Vercel, Supabase and CI/CD
 
@@ -79,11 +83,11 @@ For the initial account/project setup, run:
 npm run setup:deploy
 ```
 
-The five-stage wizard renews GitHub access, creates/links a Vercel project, guides creation of a separate Supabase project, configures the server-only Supabase key in Vercel and saves six CI secrets. Its credential prompts are hidden and its local `.env.deployment` file is mode 0600 and ignored. It applies no migrations, uploads no crawl files and performs no deployment or git push.
+The five-stage wizard renews GitHub access, creates/links a Vercel project, guides creation of a separate Supabase project, configures the server-only Supabase key in Vercel and saves six CI secrets plus the public `APP_BASE_URL` repository variable. Its credential prompts are hidden and its local `.env.deployment` file is mode 0600 and ignored. It applies no migrations, uploads no crawl files and performs no deployment or git push.
 
 The hosted app uses the same Express/MCP tools and embedded widgets through `api/index.mjs`. `SESSION_BACKEND=supabase` persists temporary comparison/context state across Vercel instances. Supabase stores only that state and the minimal research projection; private crawl databases remain local. The cloud runtime deliberately rejects the private SQLite real-inventory mode. Demo homes and unverified research links remain distinct.
 
-GitHub Actions checks app syntax/build, Node/Python tests, local Supabase migrations/permissions and multi-instance MCP persistence. Passing `main` revisions apply schema migrations, build/deploy Vercel and run a health/MCP/selection smoke test. Pull requests run checks without production credentials or deployment; automatic Vercel Git deployments are disabled to avoid bypassing these checks. The workflow is not active until committed/pushed with working account credentials and CI secrets.
+GitHub Actions checks app syntax/build, Node/Python tests, local Supabase migrations/permissions and multi-instance MCP persistence. Passing `main` revisions apply schema migrations, build/deploy Vercel and run a health/MCP/selection smoke test. Pull requests run checks without production credentials or deployment; automatic Vercel Git deployments are disabled to avoid bypassing these checks. The workflow is active. Production smoke testing targets the public `APP_BASE_URL` variable; CLI output format and protected per-deployment URLs do not determine the test target.
 
 Local database verification:
 

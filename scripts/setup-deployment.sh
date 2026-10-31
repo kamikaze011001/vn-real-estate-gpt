@@ -235,6 +235,9 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 pause "Confirm this is the app's repository, then press Enter."
 
 stage "Vercel: token and a new project"
+open_url "https://vercel.com/account/settings/authentication"
+step "Connect the GitHub identity that authors this repository under Sign-in Methods, then continue."
+pause "GitHub identity connected? Press Enter to continue."
 open_url "https://vercel.com/account/tokens"
 step "Create an expiring CI token for the team/account that will own this new project."
 step "Give it the narrowest scope that can create and deploy this app; later restrict it to the project."
@@ -293,7 +296,13 @@ for name in SUPABASE_URL SESSION_BACKEND INVENTORY_MODE RESEARCH_LINKS_ENABLED; 
 done
 printf '%s' "$SUPABASE_SECRET_KEY" | npm run --silent vercel -- env add SUPABASE_SECRET_KEY --environment production --sensitive --force --yes
 
-stage "CI/CD: save the six repository secrets"
+stage "CI/CD: save repository settings"
+open_url "https://vercel.com/dashboard"
+step "Open this project, then Settings > Domains. Copy its canonical production HTTPS URL."
+ask APP_BASE_URL "Production URL (https://...):"
+[[ "$APP_BASE_URL" == https://* && "$APP_BASE_URL" != *@* ]] || { warn "Expected a public HTTPS URL."; return 1; }
+write_env APP_BASE_URL "$APP_BASE_URL"
+set_var APP_BASE_URL "$APP_BASE_URL"
 say "These authorize this repository's production workflow to deploy this app and its schema."
 for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
   set_secret "$name" "${!name}"
