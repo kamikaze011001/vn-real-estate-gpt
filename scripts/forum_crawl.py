@@ -439,8 +439,8 @@ def save_item(db, source, url, title, post, role, feed_date=None):
     return changed
 
 
-def crawl(db, selected, max_threads, max_posts, delay, keywords):
-    fetcher = Fetcher(db, delay)
+def crawl(db, selected, max_threads, max_posts, delay, keywords, fetcher=None):
+    fetcher = fetcher or Fetcher(db, delay)
     run_id = db.execute("INSERT INTO crawl_run(started_at) VALUES(?)", (now(),)).lastrowid
     db.commit()
     feeds = json.loads((ROOT / "data/forum-feed-candidates.json").read_text(encoding="utf-8"))
@@ -545,7 +545,7 @@ def enrich(db, item_ids, delay=2):
     return result
 
 
-def marketplace(db, pages=3, max_threads=12, delay=2):
+def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
     """Bounded apartment-title discovery from the configured OTOFUN marketplace."""
     if not 1 <= pages <= 5 or not 1 <= max_threads <= 20:
         raise ValueError("marketplace supports 1–5 index pages and 1–20 opening posts")
@@ -556,7 +556,7 @@ def marketplace(db, pages=3, max_threads=12, delay=2):
     base = public_url(feed["discoveryPage"])
     if not re.fullmatch(r"/forums/cho-bat-dong-san\.423/", urlsplit(base).path):
         raise ValueError("Unexpected marketplace index route")
-    fetcher, threads, errors, resolved, changed = Fetcher(db, delay), {}, [], [], 0
+    fetcher, threads, errors, resolved, changed = fetcher or Fetcher(db, delay), {}, [], [], 0
     discovered, pages_read = 0, 0
     run_id = db.execute("INSERT INTO crawl_run(started_at) VALUES(?)", (now(),)).lastrowid
     db.commit()

@@ -1,8 +1,15 @@
 import { inOperation } from './operation-context.mjs';
 
 export class HostedRuntime {
-  constructor(store) { this.store = store; }
+  constructor(store, { realInventory = false } = {}) { this.store = store; this.realInventory = realInventory; }
   async run(kind, args, action) {
+    if (this.realInventory && kind === 'explorer') {
+      const { withSharedCatalogue } = await import('./shared-catalogue.mjs');
+      return withSharedCatalogue(this.store, catalogue => this.runWithContext(kind, args, action, catalogue));
+    }
+    return this.runWithContext(kind, args, action);
+  }
+  async runWithContext(kind, args, action, catalogue) {
     const id = kind === 'research' ? args.researchSessionId : args.explorerSessionId;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const [row, records] = await Promise.all([
@@ -11,7 +18,7 @@ export class HostedRuntime {
       ]);
       const original = row ? JSON.stringify(row.state) : null;
       const states = new Map(row ? [[id, structuredClone(row.state)]] : []);
-      const result = await inOperation({ sessions: new Map([[kind, states]]), researchRecords: records }, action);
+      const result = await inOperation({ sessions: new Map([[kind, states]]), researchRecords: records, catalogue }, action);
       if (result?.isError) return result;
       let conflict = false;
       for (const [key, state] of states) {

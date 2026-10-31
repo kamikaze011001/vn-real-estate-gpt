@@ -8,6 +8,7 @@ import { evidenceSourceErrors } from './project-evidence.mjs';
 const digest = value => createHash('sha256').update(value).digest('hex');
 const offerId = (sourceId, supplierId) => `listing-${digest(JSON.stringify([sourceId, supplierId])).slice(0, 24)}`;
 const day = now => new Date(now).toISOString().slice(0, 10);
+export const catalogueTables = ['source', 'project', 'building', 'import_run', 'review_item', 'listing_offer', 'listing_observation', 'audit_event', 'evidence_review', 'project_evidence'];
 const requireNote = (value, label) => {
   if (typeof value !== 'string' || !value.trim() || value.length > 1000) throw new Error(`${label} is required (1–1000 characters)`);
 };
@@ -35,6 +36,25 @@ export class Catalogue {
     `);
   }
   close() { this.db.close(); }
+  snapshot() {
+    return Object.fromEntries(catalogueTables.map(table => [table, this.db.prepare(`SELECT * FROM ${table} ORDER BY id`).all()]));
+  }
+  restore(tables) {
+    if (!tables || Object.keys(tables).length !== catalogueTables.length || JSON.stringify(tables).length > 5_000_000) throw new Error('Invalid catalogue snapshot');
+    this.atomic(() => {
+      for (const table of [...catalogueTables].reverse()) this.db.exec(`DELETE FROM ${table}`);
+      for (const table of catalogueTables) {
+        const columns = this.db.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name);
+        const rows = tables[table];
+        if (!Array.isArray(rows) || rows.length > 10000) throw new Error('Invalid catalogue table');
+        const insert = this.db.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`);
+        for (const row of rows) {
+          if (Object.keys(row).length !== columns.length || columns.some(key => !(key in row))) throw new Error('Invalid catalogue row');
+          insert.run(...columns.map(key => row[key]));
+        }
+      }
+    });
+  }
   atomic(fn) {
     this.db.exec('BEGIN IMMEDIATE');
     try { const result = fn(); this.db.exec('COMMIT'); return result; }

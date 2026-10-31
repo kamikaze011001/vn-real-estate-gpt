@@ -1,0 +1,189 @@
+"""Private daily Hanoi candidate pipeline. Only bounded extracted metadata leaves the worker."""
+import argparse
+import hashlib
+import json
+import os
+import re
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode, urlsplit
+from urllib.request import Request, build_opener
+
+from forum_crawl import (AccessStopped, Fetcher, KEYWORDS, NoRedirect, ROOT, crawl, database,
+                         marketplace, now, parse_thread, save_item, thread_identity, thread_url)
+from forum_review import classify, revision
+
+
+class Store:
+    def __init__(self):
+        self.origin = os.environ.get('SUPABASE_URL', '').rstrip('/')
+        url = urlsplit(self.origin)
+        if not ((url.scheme == 'https' or url.hostname in {'localhost', '127.0.0.1'}) and url.hostname
+                and not url.username and not url.password and not url.query and not url.fragment and not url.path):
+            raise ValueError('SUPABASE_URL is required')
+        self.key = os.environ.get('SUPABASE_SECRET_KEY', '')
+        if not self.key.startswith(('sb_secret_', 'eyJ')):
+            raise ValueError('A server-only Supabase key is required')
+        self.opener = build_opener(NoRedirect())
+
+    def request(self, path, body=None):
+        headers = {'apikey': self.key, 'Content-Type': 'application/json'}
+        if self.key.startswith('eyJ'):
+            headers['Authorization'] = 'Bearer ' + self.key
+        req = Request(self.origin + '/rest/v1/' + path, headers=headers,
+                      data=None if body is None else json.dumps(body).encode(), method='GET' if body is None else 'POST')
+        try:
+            with self.opener.open(req, timeout=20) as response:
+                data = response.read(6_000_000)
+                return json.loads(data) if data else None
+        except (HTTPError, URLError, TimeoutError) as error:
+            # Never expose service responses, credential-bearing headers or raw payloads to CI.
+            raise ValueError('Shared data request failed; check credentials/schema and rerun') from error
+
+    def rpc(self, name, **args):
+        return self.request('rpc/' + name, args)
+
+
+def projection(row, known_keys=()):
+    item, raw = classify(row), json.loads(row['data'])
+    actionable = (item['queue'] == 'sale-candidates' or 'offer-identity-and-completion-unconfirmed' in item['flags']
+                  or (raw.get('post_role') == 'opening-ad' and item['queue'] == 'needs-context'
+                      and any(item['fields'][key] for key in ('price_candidates','area_candidates','bedroom_candidates'))))
+    if not actionable and row['id'] not in known_keys:
+        return None
+    if item['queue'] in {'excluded', 'community-insights', 'duplicates'}:
+
+        # Refresh a known closed offer too: its new excluded status must reach review.
+        if not any(reason in item['reasons'] for reason in ('source-indicates-closed-offer', 'rental-outside-resale-pilot')):
+            return None
+    payload = {key: item[key] for key in ('queue', 'reasons', 'flags', 'geography', 'projects', 'fields',
+                                         'source_published_at', 'source_edited_at')}
+    payload.update(format=item['format'], post_key=raw.get('key'), post_role=raw.get('post_role'), collection_role=raw.get('collection_role'), publication_ready=False)
+    # Fields are our parser's short numeric expressions. Never send source titles/text/contact fields.
+    return {'id': 'candidate-' + hashlib.sha256(row['id'].encode()).hexdigest()[:24],
+            'source_id': row['source_id'], 'source_key': row['id'], 'source_url': item['source_url'],
+            'fingerprint': revision(raw), 'payload': payload, 'checked_at': row['last_seen_at'], 'expires_at': row['expires_at']}
+
+
+def refresh(db, fetcher, known, enabled):
+    errors = 0
+    for item in known:
+        if item['source_id'] not in enabled:
+            continue
+        blocked = 'voz.vn' in fetcher.blocked if item['source_id'] == 'voz' else any('otofun' in host for host in fetcher.blocked)
+        if blocked:
+            continue
+        try:
+            url = thread_url(item['source_url'])
+            html, final = fetcher.get(url, html=True)
+            if thread_url(final) != url:
+                raise ValueError('Refresh left the exact source page')
+            parsed = parse_thread(html, final, 100, opening=True)
+            key = item['payload'].get('post_key')
+            is_feed = item['payload'].get('format') == 'rss-excerpt'
+            post = next(iter(parsed['posts']), None) if is_feed else next((post for post in parsed['posts'] if post['key'] == key), None)
+            if not post:
+                raise ValueError('Exact post missing; do not infer sold/withdrawn')
+            source, thread = thread_identity(url)
+            expected = f"{source}:{thread}:feed-excerpt" if is_feed else f"{source}:{thread}:{post['key']}"
+            if item['source_key'] != expected:
+                raise ValueError('Source identity changed')
+            post.update(post_role=item['payload'].get('post_role') or 'opening-post', collection_role=item['payload'].get('collection_role') or 'property-discussion-and-lead-discovery')
+            save_item(db, source, url, parsed['title'], post, 'external-supplier-lead-discovery')
+        except (AccessStopped, ValueError):
+            errors += 1
+    return errors
+
+
+def collect(store, run_key, pages=3, threads=12):
+    feeds = json.loads((ROOT / 'data/forum-feed-candidates.json').read_text())
+    configured = {f['sourceId'] for f in feeds if f.get('collectionEnabled') and f.get('scheduledCollectionEnabled')}
+    allowed = store.request('collection_sources?select=id&scheduled=eq.true')
+    enabled = configured & {row['id'] for row in allowed}
+    if not enabled:
+        raise ValueError('No scheduled collection sources enabled')
+    run_id = store.rpc('claim_daily_run', p_run_key=run_key)
+    if not run_id:
+        return {'outcome': 'skipped', 'reason': 'another-run-holds-lease'}
+    try:
+        known = store.request('sale_candidates?' + urlencode({'select': 'source_id,source_key,source_url,payload',
+                              'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '10'}))
+        with tempfile.TemporaryDirectory(prefix='hanoi-daily-') as tmp:
+            db = database(Path(tmp) / 'inbox.sqlite')
+            try:
+                fetcher, outcomes = Fetcher(db, 2), []
+                errors = refresh(db, fetcher, known, enabled)
+                if 'otofun' in enabled and not any('otofun' in h for h in fetcher.blocked):
+                    outcomes.append(marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher))
+                # The VOZ feed is discovery only; exact original posts still require review.
+                if 'voz' in enabled:
+                    outcomes.append(crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher))
+                db.row_factory = __import__('sqlite3').Row
+                items = [p for row in db.execute('select * from item order by id') if (p := projection(row, {item['source_key'] for item in known}))]
+                items = [p for p in items if p['source_id'] in enabled]
+                # Prefer original-post identities over same-thread RSS excerpts within this batch.
+                originals = {p['source_key'].rsplit(':', 1)[0] for p in items if p['payload']['format'] == 'public-post'}
+                items = [p for p in items if p['payload']['format'] != 'rss-excerpt' or p['source_key'].rsplit(':', 1)[0] not in originals]
+                errors += sum(len(o.get('errors', [])) for o in outcomes)
+                requests = db.execute('select count(*) from fetch_log').fetchone()[0]
+                outcome = 'partial' if errors and items else 'failed' if errors or not outcomes else 'completed'
+                source_states = {s: 'blocked' if ('voz.vn' in fetcher.blocked if s == 'voz' else any('otofun' in h for h in fetcher.blocked)) else 'partial' if errors else 'ok' for s in enabled}
+                summary = {'source_states': source_states, 'candidate_records': len(items), 'requests': requests, 'source_errors': errors,
+                           'enabled_sources': sorted(enabled), 'published_listings': 0, 'raw_bodies_uploaded': False}
+                store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
+                return {'outcome': outcome, **summary}
+            finally:
+                db.close()
+    except Exception:
+        try:
+            store.rpc('finish_daily_run', p_run_id=run_id, p_items=[], p_outcome='failed', p_summary={'error': 'worker-failed', 'raw_bodies_uploaded': False})
+        except ValueError:
+            pass
+        raise
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest='command', required=True)
+    run = sub.add_parser('collect')
+    run.add_argument('--apply', action='store_true')
+    run.add_argument('--pages', type=int, choices=range(1, 6), default=3)
+    run.add_argument('--threads', type=int, choices=range(1, 21), default=12)
+    sub.add_parser('status')
+    sub.add_parser('candidates')
+    review = sub.add_parser('review')
+    for key in ('id', 'fingerprint', 'decision', 'reviewer', 'note'):
+        review.add_argument(key, choices=('keep', 'reject', 'needs-context') if key == 'decision' else None)
+    args = parser.parse_args()
+    if args.command == 'collect' and not args.apply:
+        print(json.dumps({'dry_run': True, 'scope': 'Hanoi resale apartment candidates across budgets', 'pages': args.pages, 'threads': args.threads,
+                          'note': 'Use --apply to collect into the private shared review inbox. No public catalogue publication.'}))
+        return
+    store = Store()
+    if args.command == 'collect':
+        result = collect(store, os.environ.get('GITHUB_RUN_ID', datetime.now(timezone.utc).isoformat()), args.pages, args.threads)
+    elif args.command == 'status':
+        runs = store.request('ingestion_runs?select=id,started_at,completed_at,outcome,summary&order=started_at.desc&limit=5')
+        latest = next((r for r in runs if r['outcome'] in ('completed', 'partial')), None)
+        result = {'runs': runs, 'stale': not latest or (datetime.now(timezone.utc) - datetime.fromisoformat(latest['completed_at'].replace('Z', '+00:00'))).total_seconds() > 30 * 3600}
+    elif args.command == 'candidates':
+        result = store.request('sale_candidates?' + urlencode({'select': '*', 'expires_at': 'gt.' + now(), 'order': 'checked_at.desc,id.asc', 'limit': '100'}))
+        reviews = store.request('candidate_reviews?select=candidate_id,fingerprint,decision')
+        by_revision = {(r['candidate_id'], r['fingerprint']): r['decision'] for r in reviews}
+        for item in result:
+            item['decision'] = by_revision.get((item['id'], item['fingerprint']), 'pending')
+    else:
+        store.rpc('review_sale_candidate', p_id=args.id, p_fingerprint=args.fingerprint, p_decision=args.decision, p_reviewer=args.reviewer, p_note=args.note)
+        result = {'reviewed': args.id, 'decision': args.decision, 'published_listings': 0}
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.command == 'collect' and result['outcome'] in ('failed', 'partial'):
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except ValueError as error:
+        raise SystemExit(str(error))

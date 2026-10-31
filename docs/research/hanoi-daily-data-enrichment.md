@@ -1,0 +1,40 @@
+# Daily enrichment for the Hanoi apartment pilot
+
+Checked 1 November 2026. Research for a design discussion; no scheduler, migration, crawl, supplier contact or publication was performed. Read alongside [acquisition routes](hanoi-data-acquisition.md), [data options](hanoi-pilot-data-options.md) and the [integration plan](../pilot/real-data-integration-plan.md).
+
+Current baseline supplied for this discussion: deployed Supabase holds `app_sessions` and `research_sources`; private raw crawls and the reviewed catalogue remain in local SQLite. Seven minimal OTOFUN summaries remain unverified, and there are no approved real listings. This note does not re-audit that deployment.
+
+## Recommendation
+
+**Move the reviewed catalogue and its publication controls into shared Supabase before scaling collection.** Daily collection can enrich a review inbox, but cannot by itself supply current, approved resale inventory. Keep private source material separate from the public catalogue, and preserve the existing review gate for identity, asking price, availability, completion evidence and permitted use.
+
+The selected priority is more relevant apartments for sale. Recommend reusing the existing Python crawler in one bounded daily GitHub Actions run, with Supabase holding shared candidates, history and review decisions. Proposed flow: scheduled worker fetches the narrow sale watchlist → normalization/deduplication produces private candidates and a run report → a person reviews changes → a transaction publishes the approved batch atomically. Continue serving the previous approved version if fetching, review or publication fails. These are architecture recommendations, not implemented capabilities.
+
+[GitHub's scheduling documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) says the workflow must exist on the default branch and scheduled runs use that branch's latest commit. Schedules can be delayed under load, especially at the start of an hour, and queued jobs can be dropped. Public-repository schedules disable after 60 days without repository activity. Recommend an off-hour minute such as `:17`, an explicit UTC/Vietnam time mapping, a manual rerun path and a stale-run check. GitHub-hosted execution and each source's acceptance of its requests remain untested for this crawler.
+
+## What Supabase supports
+
+| Verified primary-source fact | Consequence for this proposal |
+| --- | --- |
+| [Cron](https://supabase.com/docs/guides/cron) schedules recurring SQL, database functions or HTTP calls and records job runs. Supabase recommends no more than eight concurrent jobs and ten minutes per job. | A daily trigger is straightforward; keep the database job short. The ten-minute recommendation is not an Edge Function runtime allowance. |
+| [Scheduling Edge Functions](https://supabase.com/docs/guides/functions/schedule-functions) combines `pg_cron` and `pg_net`; the guide recommends Vault for invocation credentials. | Cron can invoke a small dispatcher. Deployment, authentication and secret handling still require implementation review. |
+| [Hosted Edge limits](https://supabase.com/docs/guides/functions/limits): 256 MB memory; 150 seconds wall clock on Free and 400 seconds on paid plans; two seconds CPU per request, excluding asynchronous I/O; 150 seconds request idle timeout. | Short feed/HTTP batches may fit after measurement. Multi-page browser sessions and CPU-heavy parsing need a separate worker or smaller checkpoints. |
+| [`EdgeRuntime.waitUntil`](https://supabase.com/docs/guides/functions/background-tasks) permits work after a response, but shutdown still follows wall-clock, CPU and memory limits. Supabase's [Puppeteer example](https://supabase.com/docs/guides/functions/examples/screenshots) connects to an external browser because of Edge size constraints. | Returning early does not make a durable, unlimited crawler. Recommend a local operator worker initially or a separately hosted browser worker when unattended operation is justified. |
+| [Queues](https://supabase.com/docs/guides/queues) stores durable messages in Postgres and describes exactly-once delivery **within a visibility window**. The [consumer guide](https://supabase.com/docs/guides/queues/consuming-messages-with-edge-functions) describes a pull-based system. The [API](https://supabase.com/docs/guides/queues/api) distinguishes reading with a visibility timeout from `pop`, which deletes immediately. | A queue needs an active consumer. Recommend acknowledging only after durable results, idempotent writes, bounded retries and a failed-job review state; queue delivery is not a guarantee of exactly-once end-to-end publication. |
+
+For the small pilot, recommend GitHub Actions plus a durable run record first; defer Cron/Queues until measured needs justify them. Neither scheduling option moves the local catalogue automatically.
+
+## Sources worth checking daily
+
+| Source | Appropriate role and limits |
+| --- | --- |
+| [OTOFUN marketplace](https://www.otofun.net.vn/forums/cho-bat-dong-san.423/), [OTOFUN discussion](https://www.otofun.net.vn/forums/xay-dung-bat-dong-san.284/) and [VOZ property category](https://voz.vn/f/bat-dong-san.79/) | Their original category pages were readable in this check. Recommend a narrow project/building watchlist. Sale posts are unverified leads; discussions supply dated questions and community context. A bump, new reply or successful fetch does not reconfirm an offer. |
+| [Hanoi Department of Construction](https://soxaydung.hanoi.gov.vn/) | Candidate for project notices and source documents. An [official Hanoi answer](https://hanoi.gov.vn/hoi-dap-truc-tuyen/hoi-thong-tin-ve-thu-tuc-moi-gioi-bds-6133) directs readers to its “Hoạt động môi giới BĐS-Dự án BĐS đưa vào kinh doanh” section. Direct retrieval timed out here; endpoint stability, coverage and machine access remain unverified. Match exact document, building and date; a future-sale eligibility notice does not establish completed-resale status or a particular unit's title. |
+| [Hanoi Statistics socioeconomic reports](https://thongkehanoi.nso.gov.vn/tinh-hinh-kinh-te-xa-hoi) | Official monthly context, discoverable through its indexed report list. Direct retrieval returned 502 here. Recommend daily change detection, ingestion only when a new report is available, and retention of reporting period/geography. This is not a daily apartment-price or availability feed. |
+| [Ministry of Construction Q2/2026 market release](https://moc.gov.vn/vn/tin-tuc/1184/96449/thi-truong-bat-dong-san-quy-ii2026-nguon-cung-khoi-sac-tap-trung-thao-go-the-che-va-thuc-day-nha-o-xa-hoi.aspx) | Indexed official aggregate context; direct retrieval returned 502. Preserve geographic coverage, period and primary/secondary distinctions. Recheck the readable original before extraction; aggregates cannot validate a unit's asking or transaction price. |
+
+**Access/reuse assumptions remain unverified.** Readability, RSS, robots directives and links do not establish permission for scheduled collection, full-text storage, summaries, photos, embeddings or public redistribution. Recheck the applicable [VOZ terms](https://voz.vn/help/terms/) and [OTOFUN agreement](https://www.otofun.net.vn/threads/thoa-thuan-cung-cap-va-su-dung-dich-vu-mang-xa-hoi-otofun.1962611/) for the intended operations. No new permission is inferred here.
+
+## Proposed first increment
+
+Migrate reviewed entities, evidence, offer observations, review decisions and publication versioning into private/shared Supabase tables with explicit serving access. Validate one complete review-to-publication batch before adding a scheduler. Then run one bounded daily watchlist with source/request/time caps, overlap prevention, checkpoints and a report of additions, changes, failures and items awaiting review. Keep source publication/edit/activity/retrieval dates distinct; keep asking-price and availability confirmations separate. No automatic promotion of the seven OTOFUN summaries or any new lead into live inventory.

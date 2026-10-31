@@ -17,8 +17,8 @@ import { ResearchLinks, researchFilters, researchGuidance, researchOutputShape }
 const app = express();
 const sessionBackend = process.env.SESSION_BACKEND || 'memory';
 if (!['memory', 'supabase'].includes(sessionBackend)) throw new Error('Invalid SESSION_BACKEND');
-if (process.env.VERCEL && (sessionBackend !== 'supabase' || inventoryMode !== 'demo')) throw new Error('Vercel requires Supabase sessions and demo inventory; the private SQLite catalogue stays local.');
-const hosted = sessionBackend === 'supabase' ? new HostedRuntime(new SupabaseStore({ url: process.env.SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY })) : null;
+if (process.env.VERCEL && sessionBackend !== 'supabase') throw new Error('Vercel requires Supabase sessions; the private SQLite catalogue stays local.');
+const hosted = sessionBackend === 'supabase' ? new HostedRuntime(new SupabaseStore({ url: process.env.SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY }), { realInventory: inventoryMode === 'real' }) : null;
 const runOperation = async (kind, args, action) => hosted ? hosted.run(kind, args, action) : action();
 
 const port = Number(process.env.PORT || 8787);

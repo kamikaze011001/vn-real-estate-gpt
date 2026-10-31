@@ -73,6 +73,20 @@ Research tools are `search_research_leads`, `get_research_context`, `compare_res
 
 The research integration has passed local UI, public MCP and actual ChatGPT checks: source cards render, widget selections reach ChatGPT, and a comparison request without typed IDs identifies the selected sources with original links, dates and unknowns. Use the stable [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe). Its Vercel endpoint uses Supabase; no development tunnel is required. See [research integration and operating limits](docs/pilot/chatgpt-research-integration.md) and the connection record for evidence and remaining checks.
 
+## Daily Hanoi data pipeline
+
+The shared catalogue and private daily candidate inbox are documented in [daily data operations](docs/pilot/daily-data-operations.md). Collection covers Hanoi across budgets; each buyer's filters apply at search time. New/changed ads require review and never become confirmed inventory automatically.
+
+```sh
+npm run catalogue:migrate                  # one-time reviewed-catalogue migration plan
+CATALOGUE_BACKEND=supabase npm run catalogue -- reviews
+npm run pipeline -- collect               # dry-run plan
+npm run pipeline -- status
+npm run pipeline -- candidates
+```
+
+The daily workflow uses a bounded Python worker plus Supabase metadata/history/review tables. The current public pilot retains demo inventory and its separately reviewed seven-source projection until qualifying real listings exist.
+
 ## Vercel, Supabase and CI/CD
 
 The official Vercel and Supabase CLIs are pinned in this project's development dependencies. Run `npm run vercel -- <command>` and `npm run supabase -- <command>`; these wrappers read the setup wizard's ignored local deployment settings. Browser steps use Brave.
@@ -83,9 +97,9 @@ For the initial account/project setup, run:
 npm run setup:deploy
 ```
 
-The five-stage wizard renews GitHub access, creates/links a Vercel project, guides creation of a separate Supabase project, configures the server-only Supabase key in Vercel and saves six CI secrets plus the public `APP_BASE_URL` repository variable. Its credential prompts are hidden and its local `.env.deployment` file is mode 0600 and ignored. It applies no migrations, uploads no crawl files and performs no deployment or git push.
+The five-stage wizard renews GitHub access, creates/links a Vercel project, guides creation of a separate Supabase project, configures the server-only Supabase key in Vercel and saves six deployment secrets, the ingestion-only Supabase key, and public repository settings. Daily collection starts disabled until its live probe passes. Its credential prompts are hidden and its local `.env.deployment` file is mode 0600 and ignored. It applies no migrations, uploads no crawl files and performs no deployment or git push.
 
-The hosted app uses the same Express/MCP tools and embedded widgets through `api/index.mjs`. `SESSION_BACKEND=supabase` persists temporary comparison/context state across Vercel instances. Supabase stores only that state and the minimal research projection; private crawl databases remain local. The cloud runtime deliberately rejects the private SQLite real-inventory mode. Demo homes and unverified research links remain distinct.
+The hosted app uses the same Express/MCP tools and embedded widgets through `api/index.mjs`. `SESSION_BACKEND=supabase` persists temporary comparison/context state across Vercel instances. Supabase stores only that state and the minimal research projection; private crawl databases remain local. The cloud runtime reads real inventory only through the shared reviewed Supabase catalogue; the private SQLite file is never deployed. Demo homes and unverified research links remain distinct.
 
 GitHub Actions checks app syntax/build, Node/Python tests, local Supabase migrations/permissions and multi-instance MCP persistence. Passing `main` revisions apply schema migrations, build/deploy Vercel and run a health/MCP/selection smoke test. Pull requests run checks without production credentials or deployment; automatic Vercel Git deployments are disabled to avoid bypassing these checks. The workflow is active. Production smoke testing targets the public `APP_BASE_URL` variable; CLI output format and protected per-deployment URLs do not determine the test target.
 
