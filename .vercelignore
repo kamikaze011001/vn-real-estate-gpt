@@ -13,7 +13,5 @@ review-web/*
 server/*.test.mjs
 server/test-support
 node_modules
-dist
-dist-research
 __pycache__
 *.sqlite*

@@ -101,8 +101,15 @@ jobs:
         id: deploy
         shell: bash
         run: |
-          url=$(npm exec -- vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
-          echo "url=$url" >> "$GITHUB_OUTPUT"
+          npm exec -- vercel deploy --prebuilt --prod --json --token="$VERCEL_TOKEN" > /tmp/vercel-deployment.json
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import { readFileSync } from 'node:fs';
+          const result = JSON.parse(readFileSync('/tmp/vercel-deployment.json', 'utf8'));
+          if (result.status !== 'ok' || result.deployment?.readyState !== 'READY') throw new Error('Production deployment is not ready.');
+          const url = new URL(result.deployment.productionUrl);
+          if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Invalid production URL.');
+          console.log(`url=${url.origin}`);
+          JS
       - name: Verify health, MCP, resources and persisted selection comparison
         env:
           EXPECT_HOSTED: '1'
