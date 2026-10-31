@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Catalogue } from './catalogue.mjs';
 import { ProjectEvidence } from './project-evidence.mjs';
+import { withSharedCatalogue } from './shared-catalogue.mjs';
+import { SupabaseStore } from './supabase-store.mjs';
+import { loadDeploymentEnv } from '../scripts/deployment-env.mjs';
 
 const usage = `Private catalogue operator commands (never exposed over HTTP/MCP):
   npm run catalogue -- init
@@ -23,13 +26,12 @@ const usage = `Private catalogue operator commands (never exposed over HTTP/MCP)
   npm run catalogue -- evidence-withdraw <evidence-id> <actor> <reason>
   npm run catalogue -- evidence-published
   npm run catalogue -- evidence-watchlist
-Set CATALOGUE_DB to choose a database; default: private-data/catalogue.sqlite.
+Set CATALOGUE_DB to choose a local database; default: private-data/catalogue.sqlite.
+Set CATALOGUE_BACKEND=supabase for the shared operator store (loads ignored deployment settings).
 Use opaque internal references for permission/updater evidence, not personal details.`;
 const [command, ...args] = process.argv.slice(2);
 if (!command || command === 'help') { console.log(usage); process.exit(0); }
-let catalogue;
-try {
-  catalogue = new Catalogue(resolve(process.env.CATALOGUE_DB || 'private-data/catalogue.sqlite'));
+function operate(catalogue) {
   const evidence = new ProjectEvidence(catalogue);
   const json = file => JSON.parse(readFileSync(file, 'utf8'));
   const exactArgs = (min, max = min) => { if (args.length < min || args.length > max) throw new Error(usage); };
@@ -62,6 +64,21 @@ try {
     case 'evidence-published': exactArgs(0); result = evidence.publicItems(); break;
     case 'evidence-watchlist': exactArgs(0); result = json(new URL('../data/evidence-watchlist.json', import.meta.url)); break;
     default: throw new Error(usage);
+  }
+  return result;
+}
+let catalogue;
+try {
+  let result;
+  if (process.env.CATALOGUE_BACKEND === 'supabase') {
+    loadDeploymentEnv();
+    const store = new SupabaseStore({ url: process.env.SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY });
+    const readOnly = ['registry','reviews','history','published','evidence-reviews','evidence-published','evidence-watchlist'].includes(command);
+    result = await withSharedCatalogue(store, operate, { write: !readOnly });
+  } else {
+    if (process.env.CATALOGUE_BACKEND && process.env.CATALOGUE_BACKEND !== 'local') throw new Error('Invalid CATALOGUE_BACKEND');
+    catalogue = new Catalogue(resolve(process.env.CATALOGUE_DB || 'private-data/catalogue.sqlite'));
+    result = operate(catalogue);
   }
   console.log(JSON.stringify(result, null, 2));
 } catch (error) { console.error(error.message); process.exitCode = 1; }

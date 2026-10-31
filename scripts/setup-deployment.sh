@@ -307,6 +307,10 @@ say "These authorize this repository's production workflow to deploy this app an
 for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
   set_secret "$name" "${!name}"
 done
+set_secret SUPABASE_SECRET_KEY "$SUPABASE_SECRET_KEY"
+set_var SUPABASE_URL "$SUPABASE_URL"
+set_var HANOI_DAILY_ENABLED false
+say "Daily collection is off until migrations and a bounded worker probe pass. Enable HANOI_DAILY_ENABLED afterward."
 if (( ${#SKIPPED[@]} )); then
   warn "Some GitHub secrets were not saved; deployment is not enabled yet."
 fi

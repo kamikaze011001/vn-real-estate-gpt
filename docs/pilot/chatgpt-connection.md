@@ -200,6 +200,12 @@ Stable-host conversation: https://chatgpt.com/c/6ae63a8e-20cc-83ec-940e-eb80f5f1
 
 These hosted checks used accessibility state. Minimum-width visual inspection, physical mobile safe areas, forced send failures/retries, a complete keyboard/screen-reader pass and multi-user load were not repeated for the stable deployment. Earlier local layout evidence remains separate. The cloud source snapshot updates only after a reviewed manual sync; expiry is checked on each operation. This is stable pilot hosting, not verified listings or an automatic market feed.
 
+### Shared Hanoi enrichment (1 November 2026)
+
+The approved dataset strategy now covers Hanoi areas and budgets, with buyer-specific filters applied at search time. [Daily operations](daily-data-operations.md) records the shared Supabase catalogue, candidate inbox, revision-bound review and bounded scheduled Python worker. Collection/review/publishing commands remain private; the MCP tools, resource URIs and widget bridge are unchanged. The deployed app retains fictional inventory and the separate seven-source reviewed research snapshot; daily candidates are not auto-published there.
+
+Local validation adds a catalogue snapshot round-trip, minimal candidate-projection/access-stop tests, database permission/lease/CAS checks and an actual local Supabase real-mode regression with two independent MCP instances. The real-mode fixtures stay in the isolated local stack. Cloud deployment and daily worker outcomes are recorded by the [deployment workflow](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/workflows/ci.yml) and [daily workflow](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/workflows/data-enrichment.yml); scheduled fetches do not confirm availability or source reuse rights.
+
 ### Earlier demo verification limits
 
 A separate [private lead-review preview](private-lead-preview.md) is available only on `http://127.0.0.1:8790`. It renders retained unverified forum ads for local operator inspection and has no `/mcp`, publication actions or tunnel. This is not a second ChatGPT connection and does not change this connection's demo inventory, v12 resource or selection mechanism. Its local browser and regression results are recorded separately; they do not establish a real-inventory ChatGPT-host pilot.

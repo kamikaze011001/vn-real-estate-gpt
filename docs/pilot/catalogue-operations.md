@@ -2,6 +2,8 @@
 
 Implemented 25 October 2026. This is the first real-data foundation: source/project/building registries, a staged CSV import, individual review decisions, public catalogue reads, observations and withdrawals. No supplier agreement or real offer is included. VOZ/OTOFUN are registered as pending research candidates. The [project-evidence workflow](project-evidence-operations.md) supports reviewed, permissioned official/community context; obtaining permitted material and automatic fetching remain outstanding.
 
+Shared hosting update (1 November 2026): the same operator commands can now use `CATALOGUE_BACKEND=supabase`; see [shared catalogue migration and daily enrichment](daily-data-operations.md). The local file workflow below remains available. The deployed buyer app still uses demo inventory.
+
 ## Storage and modes
 
 Use Node.js **22.13+**. The installed Node 22.22 runtime supports `node:sqlite` and emits an experimental-feature warning. This first operator workflow uses local SQLite without an extra dependency/service. PostgreSQL remains the proposed shared-hosting target; the app reads through `inventory-repository.mjs`, so transport and UI do not own database queries. This is an intentional smaller first step than provisioning the database in the integration plan.

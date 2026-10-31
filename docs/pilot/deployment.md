@@ -36,7 +36,9 @@ The wizard creates/links `vn-real-estate-gpt` on Vercel, configures its runtime 
 
 The public repository variable `APP_BASE_URL` is set to `https://vn-real-estate-gpt.vercel.app`; the release smoke test uses it after the CLI deployment succeeds. Vercel sign-in methods must include the GitHub identity that authors commits, so its Hobby owner check can associate the author with this project.
 
-`SUPABASE_SECRET_KEY` is stored in Vercel's secret environment settings and the local ignored setup file, not GitHub's deployment secrets or frontend assets. Prefer a modern `sb_secret_` key dedicated to this backend. The setup script neither deploys nor pushes Git, and never upgrades a plan. If the desired free capacity is unavailable, stop and resolve the project/plan choice before creating paid resources.
+`SUPABASE_SECRET_KEY` is stored in Vercel's secret environment settings, the daily-ingestion GitHub secret and the local ignored setup file, never frontend assets. The production deployment job does not receive this key. Prefer a modern `sb_secret_` key dedicated to this backend. The setup script neither deploys nor pushes Git, and never upgrades a plan. If the desired free capacity is unavailable, stop and resolve the project/plan choice before creating paid resources.
+
+Daily enrichment additionally uses the GitHub secret `SUPABASE_SECRET_KEY` and public variables `SUPABASE_URL` / `HANOI_DAILY_ENABLED`. The setup wizard saves them with daily collection disabled until migrations and a bounded live probe pass; see [daily operations](daily-data-operations.md). This worker credential is never exposed to PR jobs or browser assets.
 
 ## Checks and release
 

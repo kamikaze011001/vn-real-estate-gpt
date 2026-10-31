@@ -8,8 +8,8 @@
     "permission": "pending",
     "collectionEnabled": true,
     "scopeLimit": "Includes non-Hanoi and non-Northern topics; does not establish live inventory.",
-    "scheduledCollectionEnabled": false,
-    "collectionScope": "user-requested bounded public crawl into private review inbox"
+    "scheduledCollectionEnabled": true,
+    "collectionScope": "user-approved bounded daily collection into private shared review inbox; no automatic publication"
   },
   {
     "sourceId": "otofun",
@@ -20,8 +20,8 @@
     "permission": "pending",
     "collectionEnabled": true,
     "scopeLimit": "Discussion and news; exact dated claim and project/building scope still require review.",
-    "scheduledCollectionEnabled": false,
-    "collectionScope": "user-requested bounded public crawl into private review inbox"
+    "scheduledCollectionEnabled": true,
+    "collectionScope": "user-approved bounded daily collection into private shared review inbox; no automatic publication"
   },
   {
     "sourceId": "otofun",
@@ -32,7 +32,7 @@
     "permission": "pending",
     "collectionEnabled": true,
     "scopeLimit": "Mixed sale/rental/offers/requests. Publication needs an original authorized submission and freshness checks.",
-    "scheduledCollectionEnabled": false,
-    "collectionScope": "user-requested bounded public crawl into private review inbox"
+    "scheduledCollectionEnabled": true,
+    "collectionScope": "user-approved bounded daily collection into private shared review inbox; no automatic publication"
   }
 ]

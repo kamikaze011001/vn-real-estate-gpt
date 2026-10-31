@@ -95,6 +95,10 @@ Before a pilot session, check these observable behaviors:
 
 Report outcomes per participant. Three sessions can reveal problems and learning opportunities; they cannot establish market demand or justify a representative conversion rate. Set further success criteria after observing the participants' actual tasks.
 
+## Shared data coverage
+
+Approved 1 November 2026: build one shared Hanoi dataset across areas and budgets for future public use. Buyer-specific preferred areas and maximum budget are search inputs, not global collection constraints. Daily bounded discovery enriches a private review inbox; new/changed candidates do not bypass listing permission, identity, scope or freshness checks. See [daily operations](daily-data-operations.md). The completed-resale-apartment scope and demo/research/inventory distinctions remain.
+
 ## Technical direction and open decisions
 
 Use the installed `chatgpt-apps` skill with `openai-docs` when implementation begins. Keep server-backed data and operations useful without custom UI; use the current MCP Apps bridge for the embedded component. Current guidance: [define tools](https://developers.openai.com/plugins/plan/tools), [UI integration](https://developers.openai.com/plugins/build/chatgpt-ui), and [connection testing](https://developers.openai.com/plugins/deploy/connect-chatgpt).
