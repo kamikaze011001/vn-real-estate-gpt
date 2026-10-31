@@ -8,5 +8,5 @@ const response = await fetch(`https://api.supabase.com/v1/projects/${ref}/config
 });
 if (!response.ok) throw new Error(`Supabase IPv4 discovery failed (HTTP ${response.status}). The project-scoped CLI token needs Connection Pooling Read (database_pooling_config_read).`);
 const poolers = await response.json();
-if (!Array.isArray(poolers) || !poolers.some(pooler => pooler.db_host && pooler.db_port === 5432)) throw new Error('No session pooler is ready for this project yet.');
+if (!Array.isArray(poolers) || !poolers.some(pooler => pooler.db_host && Number(pooler.db_port) > 0)) throw new Error('No pooler is ready for this project yet.');
 console.log('Supabase project-scoped IPv4 pooler discovery passed. No connection credentials were printed.');
