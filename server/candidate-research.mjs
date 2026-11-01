@@ -23,8 +23,8 @@ export function candidateResearch(rows, curated = [], reviews = [], clock = Date
   const rejected = new Set(reviews.filter(r => r.decision === 'reject').map(r => r.candidate_id+':'+r.fingerprint));
   return rows.flatMap(row => {
     const key = row.source_key, p = row.payload, checked = Date.parse(row.checked_at), expiry = Date.parse(row.expires_at);
-    const portal=row.source_id==='alonhadat';
-    if (typeof key !== 'string' || !(portal?/^alonhadat:(\d+):ad-\1$/:/^(otofun|voz):\d+:post-\d+$/).test(key) || key.split(':')[0] !== row.source_id
+    const portal=['alonhadat','rongbay'].includes(row.source_id);
+    if (typeof key !== 'string' || !(portal?/^(alonhadat|rongbay):(\d+):ad-\2$/:/^(otofun|voz):\d+:post-\d+$/).test(key) || key.split(':')[0] !== row.source_id
         || !p || p.format !== (portal?'public-ad':'public-post') || !['opening-ad', 'opening-post'].includes(p.post_role)
         || p.post_key !== key.split(':')[2] || !['sale-candidates', 'needs-context'].includes(p.queue)
         || rejected.has(row.id+':'+row.fingerprint) || !Number.isFinite(checked) || checked > clock+60000
@@ -51,7 +51,7 @@ export function candidateResearch(rows, curated = [], reviews = [], clock = Date
       const project = (Array.isArray(p.projects) ? p.projects : []).map(x => projectLabels[x.candidate]).find(Boolean);
       // Curated names are our historical labels, not copied source titles or new verification.
       const portalProject=portal?(Array.isArray(p.projects)?p.projects:[]).map(x=>factLabel(x.label)).find(Boolean):null;
-      const label = named ? prior.label : portal ? [portalProject?`${portalProject} (theo nguồn)`:'Tin ALONHADAT',factLabel(fields.area_label),`#${key.split(':')[1]}`].filter(Boolean).join(' · ').slice(0,160) : project || `Tin ${source} · #${key.split(':')[1]}`;
+      const label = named ? prior.label : portal ? [portalProject?`${portalProject} (theo nguồn)`:`Tin ${source}`,factLabel(fields.area_label),`#${key.split(':')[1]}`].filter(Boolean).join(' · ').slice(0,160) : project || `Tin ${source} · #${key.split(':')[1]}`;
       return [leadSchema.parse({ id, label, source, sourceUrl, publishedAt: date(p.source_published_at), editedAt: date(p.source_edited_at),
         ...(portal?{displayedAt:date(fields.displayed_date)}:{}),
         collectedAt: row.checked_at, expiresAt: new Date(Math.min(expiry, checked+14*86400000)).toISOString(),

@@ -24,7 +24,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 AGENT = requests.utils.default_user_agent()
 VOZ_AGENT = 'NhaHaNoiBot/0.1 (public property reference research; no login)'
-HOSTS = {"voz.vn", "www.otofun.net.vn", "www.otofun.net", "alonhadat.com.vn"}
+HOSTS = {"voz.vn", "www.otofun.net.vn", "www.otofun.net", "alonhadat.com.vn", "rongbay.com"}
 KEYWORDS = ["ha noi", "ha dong", "cau giay", "tay ho", "long bien", "tu liem", "thanh xuan", "smart city", "ocean park", "mien bac"]
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
@@ -148,7 +148,7 @@ def network_failure(error):
 
 
 def publisher(host):
-    return 'voz' if host == 'voz.vn' else 'otofun' if host in {'www.otofun.net.vn', 'www.otofun.net'} else 'alonhadat' if host == 'alonhadat.com.vn' else None
+    return 'voz' if host == 'voz.vn' else 'otofun' if host in {'www.otofun.net.vn', 'www.otofun.net'} else 'alonhadat' if host == 'alonhadat.com.vn' else 'rongbay' if host == 'rongbay.com' else None
 
 
 def source_stopped(fetcher, source):

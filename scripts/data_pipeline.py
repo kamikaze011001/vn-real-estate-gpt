@@ -19,6 +19,7 @@ from forum_crawl import (AccessStopped, Fetcher, KEYWORDS, NETWORK_FAILURES, NoR
                          marketplace, now, parse_thread, save_item, source_stopped, thread_identity, thread_url)
 from forum_review import classify, revision
 from alonhadat_source import run as run_alonhadat
+from rongbay_source import run as run_rongbay
 
 SOURCE_BUDGET_SECONDS = 120
 
@@ -178,6 +179,8 @@ def run_source(source, known, pages, threads, discovery=None, refresh_only=False
     """One publisher owns its temporary inbox, transport and error boundary."""
     if source == 'alonhadat':
         return run_alonhadat(refresh_candidates(known,source),pages,threads,discovery,refresh_only,refresh_limit)
+    if source == 'rongbay':
+        return run_rongbay(refresh_candidates(known,source),pages,threads,discovery,refresh_only,refresh_limit)
     details, items, processed, frontier = empty_diagnostics(), [], 0, None
     with tempfile.TemporaryDirectory(prefix=f'hanoi-{source}-') as tmp:
         db = database(Path(tmp) / 'inbox.sqlite')
@@ -278,7 +281,7 @@ def collect(store, run_key, pages=3, threads=12, refresh_only=False, refresh_lim
         for source in due:
             try:
                 with source_budget(SOURCE_BUDGET_SECONDS):
-                    discovery = store.rpc('load_source_discovery', p_source=source) if source in {'otofun','alonhadat'} and not refresh_only else None
+                    discovery = store.rpc('load_source_discovery', p_source=source) if source in {'otofun','alonhadat','rongbay'} and not refresh_only else None
                     result = run_source(source, known, pages, threads, discovery, refresh_only, refresh_limit)
             except SourceBudgetExceeded:
                 details = empty_diagnostics()
@@ -342,7 +345,7 @@ def main():
                   'operational': not stale and latest_outcome in ('completed', 'partial'),
                   'degraded': latest_outcome != 'completed', 'latest_outcome': latest_outcome,
                   'sources': [{key: row.get(key) for key in ('id', 'access_status', 'checked_at', 'last_success_at', 'failure_count', 'retry_after', 'discovery_page')}
-                              for row in store.request('collection_sources?select=*') if row.get('id') in {'otofun', 'voz', 'alonhadat'}]}
+                              for row in store.request('collection_sources?select=*') if row.get('id') in {'otofun', 'voz', 'alonhadat', 'rongbay'}]}
     elif args.command == 'candidates':
         result = store.request('sale_candidates?' + urlencode({'select': '*', 'expires_at': 'gt.' + now(), 'order': 'checked_at.desc,id.asc', 'limit': '100'}))
         reviews = store.request('candidate_reviews?select=candidate_id,fingerprint,decision')

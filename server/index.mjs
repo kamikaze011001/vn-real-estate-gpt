@@ -107,7 +107,7 @@ function createMcpServer() {
     } }] }));
     addDataTool(server, 'search_research_leads', {
       title: 'Tìm nguồn tin rao đã thu thập',
-      description: `Use this when the user asks for actual collected VOZ/OTOFUN/Alonhadat source leads, source links or exploratory apartment research. This is separate from search_properties and never returns demo homes. ${researchGuidance} Numeric hard filters are intentionally unsupported: do not describe these links as matching a budget, area or bedroom requirement. Call show_research_explorer with the same text query/scope to browse.`,
+      description: `Use this when the user asks for actual collected VOZ/OTOFUN/Alonhadat/Rongbay source leads, source links or exploratory apartment research. This is separate from search_properties and never returns demo homes. ${researchGuidance} Numeric hard filters are intentionally unsupported: do not describe these links as matching a budget, area or bedroom requirement. Call show_research_explorer with the same text query/scope to browse.`,
       inputSchema: { ...researchFilters, researchSessionId: z.string().uuid().optional() }, outputSchema: researchOutputShape, annotations,
     }, researchCall(args => research.search(args)));
     addDataTool(server, 'get_research_context', {

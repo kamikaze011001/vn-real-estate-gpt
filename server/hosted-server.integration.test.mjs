@@ -93,4 +93,14 @@ test('real Supabase + independent Node instances preserve both explorers across 
   await b.call('set_research_selection',{researchSessionId:mixed.researchSessionId,ids:mixedIds});
   assert.deepEqual((await cold.call('compare_research_leads',{researchSessionId:mixed.researchSessionId})).leads.map(x=>x.id),mixedIds);
 
+  const rongbay={...portal,id:'candidate-'+'9'.repeat(24),source_id:'rongbay',source_key:'rongbay:34423215:ad-34423215',source_url:'https://rongbay.com/Ha-Noi/Test-only-c15-raovat-34423215.html',
+    payload:{...portal.payload,post_key:'ad-34423215'}};
+  rows.push(rongbay);await store.request('sale_candidates',{method:'POST',body:rongbay});
+  const rongFeed=await fetch(cold.origin+'/api/research/leads?scope=research&query=rongbay').then(r=>r.json());
+  assert.equal(rongFeed.total,1);assert.equal(rongFeed.leads[0].source,'RONGBAY');assert.equal(rongFeed.leads[0].publishedAt,null);
+  assert.equal(rongFeed.leads[0].quality.state,'needs-context');assert.equal(rongFeed.counts.usableGroups,0);
+  const three=[...mixedIds,rongFeed.leads[0].id];
+  await b.call('set_research_selection',{researchSessionId:mixed.researchSessionId,ids:three});
+  assert.deepEqual((await cold.call('compare_research_leads',{researchSessionId:mixed.researchSessionId})).leads.map(x=>x.id),three);
+
 });
