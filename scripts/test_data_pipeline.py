@@ -11,7 +11,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 from forum_crawl import database, save_item
-from data_pipeline import projection, refresh, collect, main
+from data_pipeline import projection, refresh, collect, main, run_source
 
 
 class MemoryStore:
@@ -27,7 +27,7 @@ class MemoryStore:
     def rpc(self, name, **args):
         if name == 'claim_daily_run':
             return 'lease'
-        if name == 'finish_daily_run':
+        if name in {'finish_daily_run', 'finish_discovery_run'}:
             self.finished.append(args)
             return len(args['p_items'])
 
@@ -49,6 +49,23 @@ class PipelineTests(unittest.TestCase):
                    'format': 'public-post', 'post_role': 'opening-ad', 'collection_role': 'external-supplier-lead-discovery'},
                   'external-supplier-lead-discovery')
         return self.db.execute('select * from item').fetchone()
+
+    def test_refresh_does_not_consume_the_new_discovery_slot(self):
+        base = 'https://www.otofun.net.vn/forums/cho-bat-dong-san.423/'
+        index = "<div class='structItem-title'><a href='/threads/known.42/'>Căn hộ Hà Nội</a></div><div class='structItem-title'><a href='/threads/new.43/'>Căn hộ Hà Nội</a></div>"
+        page = "<h1 class='p-title-value'>Cần bán căn hộ Hà Nội</h1><article data-content='post-1'><div class='bbWrapper'>Cần bán căn hộ Hà Nội 72m2 2 phòng ngủ giá 4 tỷ.</div></article>"
+        known = [{'source_id':'otofun','source_key':'otofun:42:post-1','source_url':'https://www.otofun.net.vn/threads/known.42/#post-1','payload':{}}]
+        def refreshed(db, *_args, **_kwargs):
+            save_item(db, 'otofun', 'https://www.otofun.net.vn/threads/known.42/', 'Cần bán căn hộ Hà Nội',
+                      {'key':'post-1','text':'Cần bán căn hộ Hà Nội 72m2 2 phòng ngủ giá 4 tỷ.',
+                       'source_url':known[0]['source_url'],'format':'public-post','post_role':'opening-ad'}, 'external-supplier-lead-discovery')
+            return 0
+        def get(url, **_kwargs):
+            return (index if '/forums/' in url else page, url)
+        with patch('data_pipeline.refresh', side_effect=refreshed), patch('forum_crawl.Fetcher.get', side_effect=get) as requests:
+            result = run_source('otofun', known, 1, 1)
+        self.assertEqual({item['source_key'] for item in result['items']}, {'otofun:42:post-1','otofun:43:post-1'})
+        self.assertNotIn('https://www.otofun.net.vn/threads/known.42/', [call.args[0] for call in requests.call_args_list])
 
     def test_projection_keeps_unknowns_and_excludes_private_content(self):
         result = projection(self.item())

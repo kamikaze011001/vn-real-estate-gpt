@@ -34,6 +34,8 @@ def check():
     run_prefix = 'resilience-integration-' + uuid.uuid4().hex
     source_key = 'voz:999000111:post-999000222'
     candidate_id = 'candidate-' + hashlib.sha256(source_key.encode()).hexdigest()[:24]
+    frontier_threads = ['999000333', '999000334', '999000335']
+    frontier_ids = ['candidate-' + hashlib.sha256(f'otofun:{key}:post-999000444'.encode()).hexdigest()[:24] for key in frontier_threads]
 
     def healthy_voz(db, *_args, **_kwargs):
         save_item(db, 'voz', 'https://voz.vn/t/resilience-test.999000111/', 'TEST ONLY Cần bán căn hộ Hà Nội',
@@ -86,6 +88,28 @@ def check():
         assert recovery['outcome'] == 'completed'
         assert recovered['failure_count'] == 0 and recovered['retry_after'] is None and recovered['last_success_at']
 
+        # Exercise real discovery/parser/projection + actual RPC across cold temporary inboxes.
+        index = ''.join(f"<div class='structItem-title'><a href='/threads/frontier-test.{key}/'>TEST ONLY Căn hộ Hà Nội</a></div>" for key in frontier_threads)
+        opening = "<h1 class='p-title-value'>TEST ONLY Cần bán căn hộ Hà Nội</h1><article data-content='post-999000444'><div class='bbWrapper'>TEST ONLY Cần bán căn hộ Hà Nội 72m2 2 phòng ngủ giá 4 tỷ.</div></article>"
+        def synthetic_get(url, **_kwargs):
+            if '/forums/cho-bat-dong-san.423/' in url:
+                return index, url
+            if any(f'/frontier-test.{key}/' in url for key in frontier_threads):
+                return opening, url
+            raise AssertionError('Unexpected external source URL')
+        with patch('data_pipeline.refresh', return_value=0), \
+             patch('forum_crawl.Fetcher.get', side_effect=synthetic_get), \
+             patch('data_pipeline.crawl', side_effect=healthy_voz):
+            discover_first = collect(store, run_prefix + '-discover-first', pages=2, threads=1)
+            saved = store.rpc('load_source_discovery', p_source='otofun')
+            assert saved['next_page'] == 3 and sum(row['due'] for row in saved['threads']) == 2
+            discover_second = collect(store, run_prefix + '-discover-second', pages=2, threads=1)
+        saved = store.rpc('load_source_discovery', p_source='otofun')
+        assert saved['next_page'] == 4 and sum(row['due'] for row in saved['threads']) == 1
+        assert all(run['source_diagnostics']['otofun']['new_candidates'] == 1 for run in [discover_first, discover_second])
+        actual = store.request('sale_candidates?id=in.(' + ','.join(frontier_ids) + ')&select=id')
+        assert len(actual) == 2, 'unfetched source must survive to the next worker without refetching the previous candidate'
+
         future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
         mutate('PATCH', 'collection_sources?id=in.(otofun,voz)', {'retry_after': future})
         with patch('data_pipeline.run_source') as source:
@@ -93,13 +117,14 @@ def check():
             source.assert_not_called()
         assert deferred['outcome'] == 'deferred' and deferred['requests'] == 0
         assert len(store.request('sale_candidates?id=eq.' + candidate_id + '&select=id')) == 1
-        print('Local source HTTP/RPC integration passed: partial data, cooldown skip, recovery, deferred run.')
+        print('Local source HTTP/RPC integration passed: partial data, cooldown skip, recovery, deferred run, two-run discovery frontier.')
     finally:
-        mutate('DELETE', 'sale_candidates?id=eq.' + candidate_id)
+        mutate('DELETE', 'sale_candidates?id=in.(' + ','.join([candidate_id] + frontier_ids) + ')')
+        mutate('DELETE', 'discovery_threads?source_id=eq.otofun&thread_id=in.(' + ','.join(frontier_threads) + ')')
         mutate('DELETE', 'ingestion_runs?run_key=like.' + run_prefix + '*')
         for row in original:
             mutate('PATCH', 'collection_sources?id=eq.' + row['id'],
-                   {key: row[key] for key in ['scheduled', 'checked_at', 'access_status', 'failure_count', 'retry_after', 'last_success_at']})
+                   {key: row[key] for key in ['scheduled', 'checked_at', 'access_status', 'failure_count', 'retry_after', 'last_success_at', 'discovery_page']})
         transport.close()
 
 

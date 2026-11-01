@@ -4,6 +4,17 @@ on:
     # 06:17 Asia/Ho_Chi_Minh; schedules may be delayed by GitHub.
     - cron: '17 23 * * *'
   workflow_dispatch:
+    inputs:
+      pages:
+        description: Marketplace index pages for this bounded run
+        type: choice
+        options: ['3', '5']
+        default: '3'
+      threads:
+        description: New opening posts for this bounded run
+        type: choice
+        options: ['12', '20']
+        default: '12'
 permissions:
   contents: read
 concurrency:
@@ -28,7 +39,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: npm run pipeline -- collect --apply
+          DISCOVERY_PAGES: ${{ inputs.pages || '3' }}
+          DISCOVERY_THREADS: ${{ inputs.threads || '12' }}
+        run: npm run pipeline -- collect --apply --pages "$DISCOVERY_PAGES" --threads "$DISCOVERY_THREADS"
       - name: Report run freshness
         if: always()
         env:
