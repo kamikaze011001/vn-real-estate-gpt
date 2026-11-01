@@ -1,0 +1,17 @@
+name: Listing source preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-crawl.txt
+      - name: Read-only Rongbay fallback access check
+        run: python scripts/listing_source_preflight.py

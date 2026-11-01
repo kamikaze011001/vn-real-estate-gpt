@@ -74,4 +74,13 @@ class AlonhadatTests(unittest.TestCase):
         self.assertEqual(len(result['items']),1)
         self.assertEqual(result['items'][0]['id'],known[0]['id'])
 
+    def test_failed_parsing_consumes_opening_quota_without_marking_pending_processed(self):
+        index=''.join(f'<article class="property-item"><a class="link" href="https://alonhadat.com.vn/test-only-{i}.html">TEST</a></article>' for i in [12345678,12345679,12345680])
+        def get(url,**kwargs): return (index if url==CATEGORY else '<html>missing exact identity</html>',url)
+        with patch('alonhadat_source.Fetcher.get',side_effect=get) as get:
+            result=run([],1,1)
+        self.assertEqual(get.call_count,2,'one index and one failed detail opening')
+        self.assertEqual(result['diagnostics']['discovery']['opening_posts_attempted'],1)
+        self.assertEqual(result['discovery']['attempted'],[],'failed parse remains pending for a later run')
+
 if __name__=='__main__': unittest.main()

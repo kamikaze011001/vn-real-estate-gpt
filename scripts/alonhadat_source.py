@@ -130,6 +130,7 @@ def run(known, pages, threads, discovery=None, refresh_only=False, refresh_limit
                'refresh_records':0,'projected_candidates':0,'new_candidates':0,'classification_counts':{}}
     items, indexed, attempted, observed, errors = [], [], [], 0, []
     index_pages_read=0
+    openings=0
     saved = discovery or {}
     next_page = saved.get('next_page', 2)
     frontier = None
@@ -178,10 +179,11 @@ def run(known, pages, threads, discovery=None, refresh_only=False, refresh_limit
                 due_map={row['source_url']:row.get('due') for row in saved.get('threads',[])}
                 candidates=list(dict.fromkeys(pending+indexed))
                 for url in candidates:
-                    if len(attempted)>=threads or source_stopped(fetcher,SOURCE): break
+                    if openings>=threads or source_stopped(fetcher,SOURCE): break
                     try:
                         _,ident=ad_url(url)
                         if f'alonhadat:{ident}:ad-{ident}' in known_keys or due_map.get(url) is False: continue
+                        openings+=1
                         read(url); attempted.append(url)
                     except (AccessStopped,ValueError) as error:
                         errors.append(error)
@@ -189,7 +191,7 @@ def run(known, pages, threads, discovery=None, refresh_only=False, refresh_limit
                 if indexed or attempted:
                     frontier={'source_id':SOURCE,'next_page':next_page,'indexed':indexed,'attempted':attempted}
                 details['discovery']={'index_pages_read':index_pages_read,
-                                      'opening_posts_attempted':len(attempted),'next_backfill_page':next_page}
+                                      'opening_posts_attempted':openings,'next_backfill_page':next_page}
             for error in errors:
                 category='http-'+str(error.status) if getattr(error,'status',0) else 'network-or-parse-error'
                 details['error_counts'][category]=details['error_counts'].get(category,0)+1
