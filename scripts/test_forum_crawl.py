@@ -1,12 +1,13 @@
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 import requests
 
-from forum_crawl import Robots, claims, database, parse_feed, parse_thread, public_url, redact, save_item, thread_url, Fetcher, AccessStopped, enrich, parse_marketplace, apartment_title, marketplace
+from forum_crawl import Robots, claims, database, parse_feed, parse_thread, public_url, redact, save_item, thread_url, Fetcher, AccessStopped, enrich, parse_marketplace, apartment_title, marketplace, retry_after_seconds
 
 
 class CrawlTests(unittest.TestCase):
@@ -293,6 +294,42 @@ class CrawlTests(unittest.TestCase):
                 self.assertEqual(body, b'<rss/>')
                 self.assertTrue(legacy.call_args.args[0].get_header('User-agent').startswith('NhaHaNoiBot/'))
                 normal.assert_not_called()
+            fetcher.close()
+            db.close()
+
+    def test_retry_after_preserves_server_delay_without_retrying(self):
+        self.assertEqual(retry_after_seconds('120'), 120)
+        stamp = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.assertEqual(retry_after_seconds('Sun, 01 Nov 2026 00:05:00 GMT', stamp), 300)
+        self.assertEqual(retry_after_seconds('Sat, 31 Oct 2026 23:00:00 GMT', stamp), 0)
+        self.assertIsNone(retry_after_seconds('invalid source text'))
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db, delay=0)
+            with patch.object(fetcher.session, 'get') as request:
+                response = request.return_value.__enter__.return_value
+                response.status_code = 503
+                response.headers = {'Retry-After': '120'}
+                with self.assertRaises(HTTPError):
+                    fetcher.request('https://www.otofun.net.vn/threads/test.1/')
+                self.assertEqual(request.call_count, 1)
+                self.assertEqual(fetcher.retry_after['otofun'], 120)
+            fetcher.close()
+            db.close()
+
+    def test_redirect_cannot_use_a_different_publisher_as_a_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db, delay=0)
+            fetcher.robots['https://www.otofun.net.vn'] = Robots('User-agent: *\nAllow: /')
+            with patch.object(fetcher.session, 'get') as request, patch.object(fetcher.opener, 'open') as other:
+                response = request.return_value.__enter__.return_value
+                response.status_code = 302
+                response.headers = {'Location': 'https://voz.vn/t/test.1/'}
+                with self.assertRaises(ValueError):
+                    fetcher.get('https://www.otofun.net.vn/threads/test.1/', html=True)
+                self.assertEqual(request.call_count, 1)
+                other.assert_not_called()
             fetcher.close()
             db.close()
 
