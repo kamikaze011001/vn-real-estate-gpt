@@ -13,6 +13,16 @@ if (process.env.EXPECT_HOSTED === '1') assert.equal(health.sessionBackend, 'supa
 const client = new Client({ name: 'deployment-smoke', version: '1.0.0' });
 try {
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', base), { requestInit: { headers } }));
+  const identity = client.getServerVersion();
+  assert.equal(identity.title, 'Nhà Hà Nội');
+  assert.equal(identity.websiteUrl, 'https://vn-real-estate-gpt.vercel.app/');
+  const landing = await fetch(new URL('/', base), { headers }).then(r => { assert.equal(r.status, 200); return r.text(); });
+  assert.ok(landing.includes('id="cach-dung"'), 'public website must serve the user guide');
+  const icon = await fetch(new URL(new URL(identity.icons[0].src).pathname, base), { headers });
+  assert.equal(icon.status, 200);
+  assert.ok(icon.headers.get('content-type').includes('image/png'));
+  const demo = await fetch(new URL('/demo', base), { headers }).then(r => { assert.equal(r.status, 200); return r.text(); });
+  assert.ok(demo.includes('id="result-count"'), 'standalone explorer stays available at /demo');
   const call = async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
     assert.ok(!result.isError, `${name} failed`); return result.structuredContent;

@@ -2,14 +2,23 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "npm run build",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,
-      "includeFiles": "{dist/**,dist-research/**}",
+      "includeFiles": "{dist/**,dist-research/**,site/**}",
       "excludeFiles": "{private-data/**,scripts/**,docs/**,supabase/**,**/*.test.mjs,server/test-support/**}"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
-  "git": { "deploymentEnabled": false }
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": false
+  }
 }
