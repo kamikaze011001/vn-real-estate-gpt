@@ -1,4 +1,4 @@
-"""Bounded public-forum collection into a private review inbox. Standard library only."""
+"""Bounded public-forum collection into a private review inbox."""
 import argparse
 import errno
 import hashlib
@@ -18,9 +18,11 @@ from urllib.error import HTTPError
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from xml.etree import ElementTree as ET
+import requests
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENT = "NhaHaNoiBot/0.1 (public property reference research; no login)"
+AGENT = requests.utils.default_user_agent()
+VOZ_AGENT = 'NhaHaNoiBot/0.1 (public property reference research; no login)'
 HOSTS = {"voz.vn", "www.otofun.net.vn", "www.otofun.net"}
 KEYWORDS = ["ha noi", "ha dong", "cau giay", "tay ho", "long bien", "tu liem", "thanh xuan", "smart city", "ocean park", "mien bac"]
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
@@ -123,11 +125,11 @@ NETWORK_FAILURES = {'network-timeout', 'network-dns', 'network-tls', 'network-re
 def network_failure(error):
     """Classify transport causes without retaining exception messages or URLs."""
     for _ in range(5):
-        if isinstance(error, (TimeoutError, socket.timeout)) or getattr(error, 'errno', None) == errno.ETIMEDOUT:
+        if isinstance(error, (TimeoutError, requests.Timeout)) or getattr(error, 'errno', None) == errno.ETIMEDOUT:
             return 'network-timeout'
         if isinstance(error, socket.gaierror):
             return 'network-dns'
-        if isinstance(error, ssl.SSLError):
+        if isinstance(error, (ssl.SSLError, requests.exceptions.SSLError)):
             return 'network-tls'
         if isinstance(error, (ConnectionResetError, http.client.RemoteDisconnected)):
             return 'network-reset'
@@ -135,7 +137,9 @@ def network_failure(error):
             return 'network-refused'
         if getattr(error, 'errno', None) in {errno.ENETUNREACH, errno.EHOSTUNREACH}:
             return 'network-unreachable'
-        nested = getattr(error, 'reason', None) or error.__cause__
+        nested = getattr(error, 'reason', None) or error.__cause__ or error.__context__
+        if not isinstance(nested, BaseException):
+            nested = next((arg for arg in error.args if isinstance(arg, BaseException)), None)
         if not isinstance(nested, BaseException) or nested is error:
             break
         error = nested
@@ -154,11 +158,37 @@ def source_stopped(fetcher, source):
 class Fetcher:
     def __init__(self, db, delay=2):
         self.db, self.delay = db, delay
+        self.session = requests.Session()
+        # Fixed, honest Python client identity; no ambient proxy/netrc credentials.
+        self.session.trust_env = False
         self.opener = build_opener(NoRedirect())
         self.robots, self.last_request, self.blocked = {}, {}, set()
         # Transient outages stop this publisher for this run, including its aliases.
         # A fresh worker retries normally; no access restriction is cleared here.
         self.unavailable = {}
+
+    def close(self):
+        self.session.close()
+        self.session.cookies.clear()
+
+    def download(self, url, limit):
+        # Keep VOZ's previously working client/profile; no fallback after a failure.
+        if publisher(urlsplit(url).hostname) == 'voz':
+            with self.opener.open(Request(url, headers={'User-Agent': VOZ_AGENT,
+                                  'Accept': 'text/html,application/rss+xml,text/plain;q=0.8'}), timeout=20) as response:
+                body = response.read(limit + 1)
+                if len(body) > limit:
+                    raise AccessStopped(0, 'Response size limit exceeded')
+                return body, response.status, response.headers.get('Content-Type', '')
+        with self.session.get(url, timeout=(8, 20), allow_redirects=False, stream=True, verify=True) as response:
+            if response.status_code >= 300:
+                raise HTTPError(url, response.status_code, 'HTTP response', response.headers, None)
+            body = bytearray()
+            for chunk in response.iter_content(chunk_size=65536):
+                body.extend(chunk)
+                if len(body) > limit:
+                    raise AccessStopped(0, 'Response size limit exceeded')
+            return bytes(body), response.status_code, response.headers.get('Content-Type', '')
 
     def request(self, url, limit=2_000_000):
         host = urlsplit(url).hostname
@@ -167,12 +197,9 @@ class Fetcher:
             time.sleep(wait)
         self.last_request[host] = time.monotonic()
         try:
-            with self.opener.open(Request(url, headers={"User-Agent": AGENT, "Accept": "text/html,application/rss+xml,text/plain;q=0.8"}), timeout=20) as response:
-                body = response.read(limit + 1)
-                if len(body) > limit:
-                    raise AccessStopped(0, "Response size limit exceeded")
-                self.log(url, response.status, None)
-                return body, response.headers.get("Content-Type", "")
+            body, status, content_type = self.download(url, limit)
+            self.log(url, status, None)
+            return body, content_type
         except HTTPError as error:
             self.log(url, error.code, "HTTP response")
             raise
@@ -209,7 +236,7 @@ class Fetcher:
                         elif 500 <= error.code <= 599:
                             self.unavailable[source] = {'status': error.code, 'reason': f'http-{error.code}'}
                         raise AccessStopped(error.code, "Cannot establish robots policy") from error
-            allowed, delay = self.robots[origin].policy(url)
+            allowed, delay = self.robots[origin].policy(url, VOZ_AGENT if source == 'voz' else AGENT)
             if not allowed:
                 self.log(url, 0, "robots-disallowed")
                 raise AccessStopped(0, "robots-disallowed")

@@ -11,5 +11,6 @@ private-data/
 *.sqlite-shm
 *.sqlite-wal
 __pycache__/
+.venv-crawl/
 .env*
 !.env.example

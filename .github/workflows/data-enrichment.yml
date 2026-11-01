@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
+      - name: Install pinned crawler dependencies
+        run: python -m pip install -r requirements-crawl.txt
       - name: Collect bounded candidates into the private review inbox
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}

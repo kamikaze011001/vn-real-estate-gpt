@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
+import requests
 
 from forum_crawl import Robots, claims, database, parse_feed, parse_thread, public_url, redact, save_item, thread_url, Fetcher, AccessStopped, enrich, parse_marketplace, apartment_title, marketplace
 
@@ -225,12 +226,74 @@ class CrawlTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             db = database(Path(directory) / 'crawl.sqlite')
             fetcher = Fetcher(db)
-            with patch.object(fetcher.opener, 'open', side_effect=URLError(TimeoutError())) as request:
+            with patch.object(fetcher.session, 'get', side_effect=requests.Timeout()) as request:
                 for number in [1, 2, 3]:
                     with self.assertRaises(AccessStopped):
                         fetcher.get(f'https://www.otofun.net.vn/threads/test.{number}/', html=True)
                 self.assertEqual(request.call_count, 1)
             self.assertEqual(db.execute('SELECT error FROM fetch_log').fetchone()[0], 'network-timeout')
+            db.close()
+
+    def test_http_client_never_follows_an_unvalidated_redirect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db)
+            fetcher.robots['https://www.otofun.net.vn'] = Robots('User-agent: *\nAllow: /')
+            with patch.object(fetcher.session, 'get') as request:
+                response = request.return_value.__enter__.return_value
+                response.status_code = 302
+                response.headers = {'Location': 'https://unrelated.example/'}
+                with self.assertRaises(ValueError):
+                    fetcher.get('https://www.otofun.net.vn/threads/test.1/', html=True)
+                self.assertEqual(request.call_count, 1)
+                self.assertFalse(request.call_args.kwargs['allow_redirects'])
+                self.assertTrue(request.call_args.kwargs['verify'])
+            fetcher.close()
+            db.close()
+
+    def test_decompressed_response_limit_prevents_parsing_large_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db, delay=0)
+            with patch.object(fetcher.session, 'get') as request:
+                response = request.return_value.__enter__.return_value
+                response.status_code = 200
+                response.headers = {'Content-Type': 'text/html'}
+                response.iter_content.return_value = [b'12345678', b'9']
+                with self.assertRaises(AccessStopped):
+                    fetcher.request('https://www.otofun.net.vn/threads/test.1/', limit=8)
+                request.return_value.__exit__.assert_called_once()
+            fetcher.close()
+            db.close()
+
+    def test_robots_uses_the_actual_fixed_python_client_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db)
+            self.assertTrue(fetcher.session.headers['User-Agent'].startswith('python-requests/'))
+            self.assertFalse(fetcher.session.trust_env)
+            fetcher.robots['https://www.otofun.net.vn'] = Robots('User-agent: python-requests\nDisallow: /\nUser-agent: *\nAllow: /')
+            with patch.object(fetcher.session, 'get') as request:
+                with self.assertRaises(AccessStopped):
+                    fetcher.get('https://www.otofun.net.vn/threads/test.1/', html=True)
+                request.assert_not_called()
+            fetcher.close()
+            db.close()
+
+    def test_voz_keeps_its_previous_transport_and_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db, delay=0)
+            with patch.object(fetcher.opener, 'open') as legacy, patch.object(fetcher.session, 'get') as normal:
+                response = legacy.return_value.__enter__.return_value
+                response.status = 200
+                response.headers = {'Content-Type': 'application/rss+xml'}
+                response.read.return_value = b'<rss/>'
+                body, _ = fetcher.request('https://voz.vn/f/bat-dong-san.79/index.rss')
+                self.assertEqual(body, b'<rss/>')
+                self.assertTrue(legacy.call_args.args[0].get_header('User-agent').startswith('NhaHaNoiBot/'))
+                normal.assert_not_called()
+            fetcher.close()
             db.close()
 
     def test_service_outage_after_valid_robots_stops_later_post_requests(self):

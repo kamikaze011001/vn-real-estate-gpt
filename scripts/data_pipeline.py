@@ -143,6 +143,7 @@ def collect(store, run_key, pages=3, threads=12):
                               'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '10'}))
         with tempfile.TemporaryDirectory(prefix='hanoi-daily-') as tmp:
             db = database(Path(tmp) / 'inbox.sqlite')
+            fetcher = None
             try:
                 fetcher, outcomes = Fetcher(db, 2), []
                 diagnostics = {s: {'errors': 0, 'error_counts': {}, 'requests': 0, 'http_statuses': {}, 'network_errors': {}}
@@ -177,6 +178,8 @@ def collect(store, run_key, pages=3, threads=12):
                 store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
                 return {'outcome': outcome, **summary}
             finally:
+                if fetcher is not None:
+                    fetcher.close()
                 db.close()
     except Exception:
         try:
