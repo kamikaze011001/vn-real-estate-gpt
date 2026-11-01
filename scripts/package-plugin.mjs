@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 
 const profile = JSON.parse(readFileSync('data/plugin-profile.json', 'utf8'));
 assert.ok(profile.subtitle.length <= 30);
+assert.match(profile.mcpConnectionAppId, /^(asdk_app_|connector_|templated_apps_)[A-Za-z0-9][A-Za-z0-9_-]*$/);
 assert.ok(profile.starterPrompts.every(text => text.length <= 128));
 const folder = resolve('artifacts/nha-ha-noi-plugin');
 // Only this generated package folder is replaced, never the source or operator data.
@@ -28,7 +29,7 @@ const manifest = {
 };
 writeFileSync(resolve(folder, 'plugin.json'), JSON.stringify(manifest, null, 2)+'\n');
 writeFileSync(resolve(folder, '.app.json'), JSON.stringify({ apps: { 'nha-ha-noi': {
-  id: profile.mcpConnectionPluginId, required: true,
+  id: profile.mcpConnectionAppId, required: true,
 } } }, null, 2)+'\n');
 copyFileSync(profile.icon, resolve(folder, 'assets/icon.png'));
 copyFileSync('plugin/skills/setup/SKILL.md', resolve(folder, 'skills/setup/SKILL.md'));
