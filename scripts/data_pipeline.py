@@ -11,8 +11,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, build_opener
 
-from forum_crawl import (AccessStopped, Fetcher, KEYWORDS, NoRedirect, ROOT, crawl, database,
-                         marketplace, now, parse_thread, save_item, thread_identity, thread_url)
+from forum_crawl import (AccessStopped, Fetcher, KEYWORDS, NETWORK_FAILURES, NoRedirect, ROOT, crawl, database,
+                         marketplace, now, parse_thread, save_item, source_stopped, thread_identity, thread_url)
 from forum_review import classify, revision
 
 
@@ -93,7 +93,7 @@ def request_diagnostics(db, diagnostics):
         details['requests'] += 1
         code = str(status) if 100 <= status <= 599 else 'no-response'
         details['http_statuses'][code] = details['http_statuses'].get(code, 0) + 1
-        if status == 0 and error in {'TimeoutError', 'URLError', 'OSError', 'SSLError', 'ConnectionResetError'}:
+        if status == 0 and error in NETWORK_FAILURES | {'TimeoutError', 'URLError', 'OSError', 'SSLError', 'ConnectionResetError'}:
             details['network_errors'][error] = details['network_errors'].get(error, 0) + 1
 
 
@@ -102,8 +102,7 @@ def refresh(db, fetcher, known, enabled, diagnostics=None):
     for item in known:
         if item['source_id'] not in enabled:
             continue
-        blocked = 'voz.vn' in fetcher.blocked if item['source_id'] == 'voz' else any('otofun' in host for host in fetcher.blocked)
-        if blocked:
+        if source_stopped(fetcher, item['source_id']):
             continue
         try:
             url = thread_url(item['source_url'])
@@ -144,15 +143,16 @@ def collect(store, run_key, pages=3, threads=12):
                               'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '10'}))
         with tempfile.TemporaryDirectory(prefix='hanoi-daily-') as tmp:
             db = database(Path(tmp) / 'inbox.sqlite')
+            fetcher = None
             try:
                 fetcher, outcomes = Fetcher(db, 2), []
                 diagnostics = {s: {'errors': 0, 'error_counts': {}, 'requests': 0, 'http_statuses': {}, 'network_errors': {}}
                                for s in sorted(enabled)}
                 refresh(db, fetcher, known, enabled, diagnostics)
-                if 'otofun' in enabled and not any('otofun' in h for h in fetcher.blocked):
+                if 'otofun' in enabled and not source_stopped(fetcher, 'otofun'):
                     outcomes.append(('otofun', marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher)))
                 # The VOZ feed is discovery only; exact original posts still require review.
-                if 'voz' in enabled:
+                if 'voz' in enabled and not source_stopped(fetcher, 'voz'):
                     outcomes.append(('voz', crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher)))
                 db.row_factory = __import__('sqlite3').Row
                 items = [p for row in db.execute('select * from item order by id') if (p := projection(row, {item['source_key'] for item in known}))]
@@ -178,6 +178,8 @@ def collect(store, run_key, pages=3, threads=12):
                 store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
                 return {'outcome': outcome, **summary}
             finally:
+                if fetcher is not None:
+                    fetcher.close()
                 db.close()
     except Exception:
         try:

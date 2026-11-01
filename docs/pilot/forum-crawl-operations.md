@@ -45,7 +45,7 @@ Stable source/thread/post identities prevent duplicate rows. Changed content add
 
 ## Access and limits
 
-- Honest user-agent: `NhaHaNoiBot/0.1`, identifying public property-reference research. No browser cookies, credentials, proxies or alternative bot identities.
+- Fixed per-source identities matching robots-policy evaluation: OTOFUN uses Requests' `python-requests/<pinned-version>` and VOZ retains its existing `NhaHaNoiBot/0.1` urllib profile. No automatic transport/profile fallback follows a failure. No browser impersonation, identity rotation, browser-cookie import, credentials or proxies. Only anonymous cookies set by the public source remain in the in-memory session until the worker ends; they are never uploaded or persisted to disk.
 - HTTPS forum-host allowlist, public thread route checks, bounded responses, redirect validation and same-site navigation discovery.
 - Fetch and evaluate each host's current robots rules, merging repeated matching groups and applying specific agent groups/longest path rules. Honor crawl delays; delays beyond the run budget stop collection.
 - Default two seconds between requests on a host; CLI delay cannot be less than one second. The crawler does not schedule itself or run in the background after the command completes.

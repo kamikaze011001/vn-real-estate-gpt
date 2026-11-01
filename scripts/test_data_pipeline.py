@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from forum_crawl import database, save_item
 from data_pipeline import projection, refresh, collect, main
@@ -115,6 +116,27 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(result['stale'])
         self.assertFalse(result['healthy'])
         self.assertEqual(result['latest_outcome'], 'failed')
+
+    def test_otofun_outage_stops_refresh_and_discovery_but_voz_continues(self):
+        class Store:
+            def request(self, path):
+                if path.startswith('collection_sources'):
+                    return [{'id': 'otofun'}, {'id': 'voz'}]
+                return [{'source_id': 'otofun', 'source_url': f'https://www.otofun.net.vn/threads/test.{i}/'}
+                        for i in range(1, 8)]
+            def rpc(self, name, **args):
+                return 'lease' if name == 'claim_daily_run' else None
+
+        failure = HTTPError('https://www.otofun.net.vn/robots.txt', 503, 'Unavailable', {}, None)
+        with patch('forum_crawl.Fetcher.request', side_effect=failure) as request, \
+             patch('data_pipeline.marketplace') as market, \
+             patch('data_pipeline.crawl', return_value={'errors': []}) as voz:
+            result = collect(Store(), 'test')
+        self.assertEqual(request.call_count, 1)
+        market.assert_not_called()
+        voz.assert_called_once()
+        self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'ok'})
+        self.assertEqual(result['source_errors'], 1)
 
     def test_status_distinguishes_healthy_partial_stale_and_empty_history(self):
         stamp = datetime.now(timezone.utc).isoformat()

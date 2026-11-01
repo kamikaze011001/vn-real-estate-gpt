@@ -81,15 +81,28 @@ The research integration has passed local UI, public MCP and actual ChatGPT chec
 
 The shared catalogue and private daily candidate inbox are documented in [daily data operations](docs/pilot/daily-data-operations.md). Collection covers Hanoi across budgets; each buyer's filters apply at search time. New/changed ads require review and never become confirmed inventory automatically.
 
+Install the pinned Python dependencies once in an ignored project environment:
+
+```sh
+python3 -m venv .venv-crawl
+.venv-crawl/bin/python -m pip install -r requirements-crawl.txt
+```
+
+The npm crawler commands use that environment when present, otherwise `python3` (CI installs the same requirements). `CRAWL_PYTHON` explicitly selects a different interpreter. OTOFUN uses a normal Requests session with its fixed Python identity; VOZ retains its previous urllib client/profile. BeautifulSoup cross-checks opening-post identity in the read-only thread probe.
+
 ```sh
 npm run catalogue:migrate                  # one-time reviewed-catalogue migration plan
 CATALOGUE_BACKEND=supabase npm run catalogue -- reviews
 npm run pipeline -- collect               # dry-run plan
 npm run pipeline -- status
 npm run pipeline -- candidates
+npm run pipeline:probe -- --source otofun # read-only, no credentials/shared writes
+npm run pipeline:probe -- --source otofun --thread https://www.otofun.net.vn/threads/can-ho-chung-cu-ecopark-onsen.1968309/
 ```
 
 The daily workflow uses a bounded Python worker plus Supabase metadata/history/review tables. The current public pilot retains demo inventory and its separately reviewed seven-source projection until qualifying real listings exist.
+
+For source outages and the additional-source shortlist, see the [OTOFUN diagnosis](docs/pilot/otofun-diagnosis-2026-11-01.md) and [Hanoi source expansion research](docs/research/hanoi-source-expansion-2026-11-01.md), and [free-first sources and insight quality](docs/research/hanoi-free-data-and-insights-2026-11-01.md). A source 5xx/network failure stops that publisher for the current run; a fresh worker tries normally later, without changing identity or clearing an access restriction.
 
 ## Vercel, Supabase and CI/CD
 
