@@ -119,3 +119,8 @@ Framework, hosting, map provider, operating budget, persistent-save behavior, an
 ### Live source-link page integration — 1 November 2026
 
 The user requested pushing the collected real data to the website. The landing preview and `/research`, alongside the existing ChatGPT research tools, now read minimal projections of the latest daily Supabase candidates. This is permission to display the source-link research view, not a supplier confirmation or approved property publication. Source identity, dates, uncertainty, retention and revision-bound rejection are enforced server-side. Historical curated names remain labels only. The numeric expressions are not paired into a canonical apartment, not used for hard-requirement matching, and never used to fabricate coordinates. See [daily serving operations](daily-data-operations.md#live-source-link-serving).
+
+
+### Additional source-ad acquisition — 1 November 2026
+
+The user requested actual growth beyond fourteen records. The [Alonhadat factual-reference adapter](alonhadat-acquisition.md) extends source research without copying descriptions, contacts or photos. Short project/area names remain source claims. Displayed portal dates are separate from original/genuine-edit evidence; fresh records with missing genuine dates stay unresolved, while stale/expired/proven-old ads enter archive. The existing 72h/30d/7d usable gates and separate permissioned catalogue remain.

@@ -11,6 +11,8 @@ const date = value => value ? value.slice(0, 10).split('-').reverse().join('/') 
 const localDate = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 const qualityReasons = {'source-expired':'Nguồn đánh dấu hết hạn.','source-stale':'Quá 72 giờ chưa đọc lại nguồn.','old-ad':'Tin nguồn quá 30 ngày, chưa có xác nhận lại trong 7 ngày.','source-date-missing':'Chưa có ngày đăng hoặc sửa thực sự.','review-needed':'Cần đối chiếu dự án, phạm vi, giá và diện tích.','possible-duplicate':'Có thể trùng căn với nguồn khác; tạm đếm chung một nhóm.'};
 const riskNames = {
+  'source-date-semantics-unresolved': 'Ngày hiển thị có thể liên quan đến làm mới tin; chưa có bằng chứng về ngày đăng ban đầu hoặc sửa nội dung thực sự.',
+  'project-label-conflict': 'Tên hoặc mã tòa trong các phần của tin nguồn có mâu thuẫn; chưa thể gắn với một tòa đã đối chiếu.',
   'quantity-context-unresolved': 'Các con số có thể thuộc nhiều căn, tiện ích hoặc phương án sửa; chưa xác định con số nào mô tả đúng căn.',
   'location-unresolved': 'Chưa xác nhận vị trí thuộc phạm vi Hà Nội; tin có thể nhắc nhiều khu vực.',
   'price-unresolved': 'Tổng giá hoặc cách ghi giá cần được xác nhận.', 'area-unit-unresolved': 'Đơn vị/cách tính diện tích chưa rõ.',
@@ -87,7 +89,7 @@ function render() {
   $('cards').replaceChildren();
   for (const lead of state.data.leads) {
     const card = node('article', undefined, `card${state.ids.includes(lead.id) ? ' selected' : ''}`), top = node('div', undefined, 'card-top');
-    top.append(node('span', lead.quality?.state === 'archive' ? 'Lưu trữ · chưa xác minh' : lead.quality?.state === 'usable' ? 'Đã đối chiếu theo nguồn' : 'Cần đối chiếu', 'badge'), node('span', `${lead.source} · ${date(lead.publishedAt)}`));
+    top.append(node('span', lead.quality?.state === 'archive' ? 'Lưu trữ · chưa xác minh' : lead.quality?.state === 'usable' ? 'Đã đối chiếu theo nguồn' : 'Cần đối chiếu', 'badge'), node('span', `${lead.source} · ${date(lead.publishedAt??lead.displayedAt)}${!lead.publishedAt&&lead.displayedAt?' · ngày hiển thị':''}`));
     const actions = node('div', undefined, 'card-actions'), select = button(state.ids.includes(lead.id) ? 'Đã chọn' : 'Chọn so sánh', () => toggle(lead.id));
     select.dataset.selectKey = lead.id; select.setAttribute('aria-label', `Chọn so sánh ${lead.label}`); select.setAttribute('aria-pressed', String(state.ids.includes(lead.id))); select.disabled = state.sending || (!state.ids.includes(lead.id) && state.ids.length >= 3);
     actions.append(button('Xem nguồn', () => detail(lead.id), 'primary'), select);
@@ -106,6 +108,7 @@ function render() {
     const lead = getLead(state.focused), body = $('detail-body'); body.replaceChildren();
     if (lead) {
       $('detail-title').textContent = lead.label; body.append(facts(lead), node('p', `Bài gốc: ${date(lead.publishedAt)} · Sửa theo nguồn: ${date(lead.editedAt)} · Lần thu thập: ${localDate(lead.collectedAt)}`, 'note'));
+      if(lead.displayedAt)body.append(node('p',`Ngày hiển thị trong tin: ${date(lead.displayedAt)}. Chưa xác định đây là ngày đăng ban đầu hay ngày làm mới; không dùng để xác nhận tin còn mới hoặc còn bán.`,'note'));
       if(lead.quality){
         const q=lead.quality;
         if(q.advertisedPriceVnd!==null)body.append(node('p',`Đã đối chiếu theo nguồn: giá chào ${new Intl.NumberFormat('vi-VN').format(q.advertisedPriceVnd)} VND · ${q.advertisedAreaM2} m². Thông tin nguồn, chưa phải giá giao dịch.`,'note'));
@@ -114,7 +117,7 @@ function render() {
         q.reasons.forEach(reason=>body.append(node('p',qualityReasons[reason],'note')));
       }
       const list = node('ul', undefined, 'risk-list'); lead.risks.forEach(key => list.append(node('li', riskNames[key]))); list.append(node('li', 'Cần xác nhận còn bán, đúng căn/tòa, hoàn thành và giấy tờ; không coi các biểu thức nguồn là thông số đã duyệt.')); body.append(list);
-      const link = node('a', 'Mở bài gốc trên diễn đàn ↗', 'source-link'); link.href = lead.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      const link = node('a', 'Mở tin gốc ↗', 'source-link'); link.href = lead.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (hosted) link.addEventListener('click', event => { event.preventDefault(); void bridge.openLink({ url: lead.sourceUrl }).catch(() => error('Chưa mở được nguồn. Hãy thử lại.')); });
       body.append(link, node('p', 'Chỉ hiển thị liên kết và dữ liệu nguồn tối thiểu; không sao chép mô tả, ảnh, liên hệ hoặc phản hồi tác giả.', 'note'));
     }

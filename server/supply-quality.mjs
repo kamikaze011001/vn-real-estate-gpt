@@ -36,14 +36,14 @@ export function applySupplyPolicy(leads,assessments=new Map(),clock=Date.now()) 
       if(!Number.isFinite(sourceStamp))why.push('source-date-missing');
       else if(sourceStamp>today||sourceStamp<today-30*day)why.push('old-ad');
     }
-    const archived=why.length>0;
+    const archived=why.some(reason=>['source-expired','source-stale','old-ad'].includes(reason));
     if(!facts)why.push('review-needed');
     const status=['distinct','suspected','confirmed'].includes(assessment?.duplicate_status)?assessment.duplicate_status:'unchecked';
     const group=/^[0-9a-f-]{36}$/.test(assessment?.duplicate_group||'')?assessment.duplicate_group:null;
     const automatic=facts&&status==='unchecked'?`similar:${facts.projectId}:${facts.totalAskingPriceVnd}:${facts.areaM2}`:null;
     const clusterId='cluster-'+hash(group&&status!=='distinct'?'review:'+group:automatic||lead.id);
     const risks=facts?(lead.risks||[]).filter(r=>!['project-identity-unresolved','quantity-context-unresolved','price-unresolved','area-unit-unresolved','location-unresolved'].includes(r)):lead.risks;
-    return {...lead,risks,quality:{state:archived?'archive':facts?'usable':'needs-context',reasons:why,clusterId,
+    return {...lead,risks,quality:{state:archived?'archive':facts&&!why.includes('source-date-missing')?'usable':'needs-context',reasons:why,clusterId,
       duplicateStatus:status,duplicateCount:1,projectId:facts?.projectId??null,projectLabel:facts?.projectLabel??null,
       advertisedPriceVnd:facts?.totalAskingPriceVnd??null,advertisedAreaM2:facts?.areaM2??null,
       supplierConfirmedAt:confirmationFresh?facts.supplierConfirmedAt:null,availabilityConfirmed:confirmationFresh&&!!facts}};

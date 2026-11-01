@@ -106,3 +106,8 @@ Safe diagnostics now include successful refresh record count, pages/title candid
 ## Usable supply and freshness sweeps — 1 November 2026
 
 The [approved 100-ad/ten-project plan](usable-supply-operations.md) adds revision-bound service-only assessments, provisional duplicate groups, a private timed review queue and explicit usable/research/archive views. Source facts remain distinct from approved inventory. Daily discovery is supplemented by three bounded refresh-only runs; source isolation, backoff and retention are unchanged. [Supplier intake and unsent drafts](supplier-starter-pack.md) support the second acquisition path. [Muaban assessment](../research/muaban-acquisition-assessment-2026-11-01.md) does not authorize a new scheduled collector. No new supplier data or approved listing is seeded by this release.
+
+
+## Additional ad source
+
+[Alonhadat acquisition](alonhadat-acquisition.md) adds a separately gated, bounded parser and persistent frontier over the established Requests/robots transport. Public research includes minimal numeric facts and original links; source-displayed dates are explicitly uncertain and do not establish original publication, availability or usable supply. Source-specific failure/backoff and the permissioned inventory boundary remain. Resource version is research-v4.

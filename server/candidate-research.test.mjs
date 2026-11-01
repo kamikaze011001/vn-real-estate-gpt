@@ -43,3 +43,16 @@ test('curated labels never resurrect removed records or replace live dates and e
   assert.equal(current.label,curated.label); assert.equal(current.collectedAt,candidate.checked_at);
   assert.equal(current.priceExpressions[0].raw,'6ty 850tr vnd'); assert.deepEqual(candidateResearch([],[curated]),[]);
 });
+
+test('Alonhadat ads project only scoped numeric facts, an own label and separately uncertain displayed date',()=>{
+  const candidate=row({source_id:'alonhadat',source_key:'alonhadat:12345678:ad-12345678',source_url:'https://alonhadat.com.vn/test-apartment-12345678.html'});
+  candidate.payload={...candidate.payload,format:'public-ad',post_key:'ad-12345678',flags:['source-date-semantics-unresolved'],geography:'hanoi-mentioned',
+    source_published_at:null,source_edited_at:null,projects:[{label:'TEST ONLY Project'}],fields:{...candidate.payload.fields,displayed_date:'2026-11-01',area_label:'Cầu Giấy'}};
+  const leads=candidateResearch([candidate]);
+  assert.equal(leads.length,1);assert.equal(leads[0].source,'ALONHADAT');assert.equal(leads[0].displayedAt,'2026-11-01');
+  assert.equal(leads[0].publishedAt,null);assert.match(leads[0].label,/TEST ONLY Project/);assert.match(leads[0].label,/Cầu Giấy/);
+  assert.equal(leads[0].inventoryEligible,false);assert.equal(leads[0].priceVnd,null);
+  for(const bad of [candidate.source_url+'?phone=123',candidate.source_url.replace('12345678.html','99999999.html'),candidate.source_url.replace('alonhadat.com.vn','evil.test')])
+    assert.deepEqual(candidateResearch([{...candidate,source_url:bad}]),[]);
+  assert.ok(!JSON.stringify(leads).includes('PRIVATE'));
+});

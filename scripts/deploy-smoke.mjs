@@ -53,7 +53,7 @@ try {
       await call('set_research_selection', { researchSessionId: research.researchSessionId, ids: selected });
       assert.deepEqual((await call('compare_research_leads', { researchSessionId: research.researchSessionId })).leads.map(x => x.id), selected);
     }
-    await client.readResource({ uri: 'ui://hanoi-home/research-v3.html' });
+    await client.readResource({ uri: 'ui://hanoi-home/research-v4.html' });
   }
   console.log(JSON.stringify({ ok: true, origin: base.origin, sessionBackend: health.sessionBackend, sources, selectionComparison: 'passed' }));
 } finally { await client.close(); }

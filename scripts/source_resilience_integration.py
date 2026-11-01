@@ -11,6 +11,7 @@ from unittest.mock import patch
 import requests
 from data_pipeline import Store, collect
 from forum_crawl import save_item
+from test_alonhadat_source import detail as synthetic_ad
 
 
 def check():
@@ -36,6 +37,7 @@ def check():
     candidate_id = 'candidate-' + hashlib.sha256(source_key.encode()).hexdigest()[:24]
     frontier_threads = ['999000333', '999000334', '999000335']
     frontier_ids = ['candidate-' + hashlib.sha256(f'otofun:{key}:post-999000444'.encode()).hexdigest()[:24] for key in frontier_threads]
+    portal_id='candidate-'+hashlib.sha256(b'alonhadat:12345678:ad-12345678').hexdigest()[:24]
 
     def healthy_voz(db, *_args, **_kwargs):
         save_item(db, 'voz', 'https://voz.vn/t/resilience-test.999000111/', 'TEST ONLY Cần bán căn hộ Hà Nội',
@@ -117,9 +119,27 @@ def check():
             source.assert_not_called()
         assert deferred['outcome'] == 'deferred' and deferred['requests'] == 0
         assert len(store.request('sale_candidates?id=eq.' + candidate_id + '&select=id')) == 1
-        print('Local source HTTP/RPC integration passed: partial data, cooldown skip, recovery, deferred run, two-run discovery frontier.')
+
+        # A healthy portal must persist actual parsed facts beside a failed forum.
+        mutate('PATCH','collection_sources?id=eq.voz',{'scheduled':False})
+        mutate('PATCH','collection_sources?id=in.(otofun,alonhadat)',{'scheduled':True,'retry_after':None})
+        portal_url='https://alonhadat.com.vn/test-only-12345678.html'
+        def portal_get(url,**kwargs):
+            if '/can-ban-can-ho-chung-cu/ha-noi' in url:
+                return f'<article class="property-item"><a class="link" href="{portal_url}">TEST ONLY</a></article>',url
+            if url==portal_url: return synthetic_ad(),url
+            raise AssertionError('Unexpected source request')
+        with patch('data_pipeline.refresh',return_value=0),patch('forum_crawl.Fetcher.get',side_effect=portal_get),patch('data_pipeline.marketplace',side_effect=unavailable_otofun):
+            portal_run=collect(store,run_prefix+'-portal',pages=1,threads=1)
+        assert portal_run['outcome']=='partial' and portal_run['source_states']['alonhadat']=='ok'
+        assert portal_run['source_states']['otofun']=='failed'
+        portal=store.request('sale_candidates?id=eq.'+portal_id+'&select=payload')
+        assert len(portal)==1 and portal[0]['payload']['format']=='public-ad'
+        assert 'PRIVATE' not in json.dumps(portal) and '0901234567' not in json.dumps(portal)
+        print('Local source HTTP/RPC integration passed: partial data, cooldown, recovery, deferred run, persistent discovery, Alonhadat intake beside a failed forum.')
     finally:
-        mutate('DELETE', 'sale_candidates?id=in.(' + ','.join([candidate_id] + frontier_ids) + ')')
+        mutate('DELETE', 'sale_candidates?id=in.(' + ','.join([candidate_id,portal_id] + frontier_ids) + ')')
+        mutate('DELETE','discovery_threads?source_id=eq.alonhadat&thread_id=eq.12345678')
         mutate('DELETE', 'discovery_threads?source_id=eq.otofun&thread_id=in.(' + ','.join(frontier_threads) + ')')
         mutate('DELETE', 'ingestion_runs?run_key=like.' + run_prefix + '*')
         for row in original:

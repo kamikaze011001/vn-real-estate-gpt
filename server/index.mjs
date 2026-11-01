@@ -26,7 +26,7 @@ const port = Number(process.env.PORT || 8787);
 const htmlPath = fileURLToPath(new URL('../dist/index.html', import.meta.url));
 const resourceUri = 'ui://hanoi-home/explorer-v12.html';
 const researchEnabled = process.env.RESEARCH_LINKS_ENABLED === '1';
-const researchUri = 'ui://hanoi-home/research-v3.html';
+const researchUri = 'ui://hanoi-home/research-v4.html';
 const researchHtml = fileURLToPath(new URL('../dist-research/index.html', import.meta.url));
 const sitePath = fileURLToPath(new URL('../site/', import.meta.url));
 const research = researchEnabled ? new ResearchLinks({ dbPath: process.env.RESEARCH_DB || 'private-data/forum-crawl.sqlite', manifestPath: process.env.RESEARCH_LINKS_MANIFEST || 'private-data/research-links.json' }) : null;
@@ -107,7 +107,7 @@ function createMcpServer() {
     } }] }));
     addDataTool(server, 'search_research_leads', {
       title: 'Tìm nguồn tin rao đã thu thập',
-      description: `Use this when the user asks for actual crawled VOZ/OTOFUN source leads, source links or exploratory apartment research. This is separate from search_properties and never returns demo homes. ${researchGuidance} Numeric hard filters are intentionally unsupported: do not describe these links as matching a budget, area or bedroom requirement. Call show_research_explorer with the same text query/scope to browse.`,
+      description: `Use this when the user asks for actual collected VOZ/OTOFUN/Alonhadat source leads, source links or exploratory apartment research. This is separate from search_properties and never returns demo homes. ${researchGuidance} Numeric hard filters are intentionally unsupported: do not describe these links as matching a budget, area or bedroom requirement. Call show_research_explorer with the same text query/scope to browse.`,
       inputSchema: { ...researchFilters, researchSessionId: z.string().uuid().optional() }, outputSchema: researchOutputShape, annotations,
     }, researchCall(args => research.search(args)));
     addDataTool(server, 'get_research_context', {
