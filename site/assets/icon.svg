@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">Nhà Hà Nội</title>
   <rect width="512" height="512" rx="112" fill="#A54F39"/>
-  <path d="M118 237 241 134q15-13 30 0l123 103v127q0 30-30 30H231l-69 46v-46h-14q-30 0-30-30Z" fill="#FFF8EF"/>
+  <path d="M112 222 235 119q21-18 42 0l123 103v122q0 40-40 40H232l-68 42v-42h-12q-40 0-40-40Z" fill="#FFF8EF"/>
   <g fill="#A54F39">
-    <rect x="184" y="238" width="49" height="49" rx="10"/>
-    <rect x="279" y="238" width="49" height="49" rx="10"/>
-    <rect x="184" y="319" width="49" height="49" rx="10"/>
-    <rect x="279" y="319" width="49" height="49" rx="10"/>
+    <rect x="180" y="229" width="52" height="52" rx="9"/>
+    <rect x="280" y="229" width="52" height="52" rx="9"/>
+    <rect x="180" y="307" width="52" height="52" rx="9"/>
+    <rect x="280" y="307" width="52" height="52" rx="9"/>
   </g>
 </svg>

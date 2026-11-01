@@ -30,6 +30,11 @@ test('HTTP/MCP research keeps safe projection, resource, context and inventory i
   const landing = await fetch(origin).then(response => response.text());
   assert.ok(landing.includes('id="cach-dung"'));
   assert.ok(landing.includes('href="/demo"'));
+  assert.ok(landing.includes('href="/pilot"'));
+  assert.ok(!landing.includes('Plugin_791fee034de48191a4ac5cfd580c5bd0'),'public guide must not promise access through a private profile');
+  const pilot=await fetch(origin+'/pilot');assert.equal(pilot.status,200);
+  const guide=await pilot.text();assert.ok(guide.includes('https://vn-real-estate-gpt.vercel.app/mcp'));
+  assert.ok(guide.includes('/research?scope=research'));
   assert.ok((await fetch(origin + '/demo').then(response => response.text())).includes('id="result-count"'));
   const tools = (await client.listTools()).tools;
   assert.ok(tools.find(tool => tool.name === 'search_research_leads').outputSchema.properties.researchOnly);

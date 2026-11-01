@@ -7,7 +7,7 @@
     "build": "vite build && vite build --config vite.research.config.mjs",
     "dev": "npm run build && node --watch server/index.mjs",
     "start": "node server/index.mjs",
-    "check": "node --check server/index.mjs && node --check server/properties.mjs && node --check server/catalogue.mjs && node --check server/listing-import.mjs && node --check server/project-evidence.mjs && node --check server/catalogue-cli.mjs && node --check server/inventory-repository.mjs && node --check server/selections.mjs && node --check server/research-links.mjs && node --check server/viewing-brief.mjs && node --check scripts/review-viewing-context.mjs && node --check web/main.js && node --check web/project-evidence.js && node --check research-web/research.js && node --check vite.research.config.mjs && node --check server/hosted-runtime.mjs && node --check server/supabase-store.mjs && node --check server/candidate-research.mjs && node --check server/source-identity.mjs && node --check server/supply-quality.mjs && node --check scripts/supply-ops.mjs && node --check server/operation-context.mjs && node --check api/index.mjs && node --check scripts/sync-research.mjs && node --check scripts/deploy-smoke.mjs && node --check scripts/test-hosted.mjs && node --check scripts/platform-cli.mjs && node --check scripts/deployment-env.mjs && node --check scripts/check-supabase-access.mjs && node --check server/shared-catalogue.mjs && node --check scripts/data-pipeline.mjs && node --check scripts/migrate-catalogue.mjs && node --check site/assets/landing.js && node --check scripts/check-vercel-output.mjs && node --check scripts/package-plugin.mjs && node --check scripts/crawl-python.mjs",
+    "check": "node --check server/index.mjs && node --check server/properties.mjs && node --check server/catalogue.mjs && node --check server/listing-import.mjs && node --check server/project-evidence.mjs && node --check server/catalogue-cli.mjs && node --check server/inventory-repository.mjs && node --check server/selections.mjs && node --check server/research-links.mjs && node --check server/viewing-brief.mjs && node --check scripts/review-viewing-context.mjs && node --check web/main.js && node --check web/project-evidence.js && node --check research-web/research.js && node --check vite.research.config.mjs && node --check server/hosted-runtime.mjs && node --check server/supabase-store.mjs && node --check server/candidate-research.mjs && node --check server/source-identity.mjs && node --check server/supply-quality.mjs && node --check scripts/supply-ops.mjs && node --check server/operation-context.mjs && node --check api/index.mjs && node --check scripts/sync-research.mjs && node --check scripts/deploy-smoke.mjs && node --check scripts/test-hosted.mjs && node --check scripts/platform-cli.mjs && node --check scripts/deployment-env.mjs && node --check scripts/check-supabase-access.mjs && node --check server/shared-catalogue.mjs && node --check scripts/data-pipeline.mjs && node --check scripts/migrate-catalogue.mjs && node --check site/assets/landing.js && node --check scripts/check-vercel-output.mjs && node --check scripts/package-plugin.mjs && node --check scripts/crawl-python.mjs && node --check scripts/export-icon.mjs",
     "catalogue": "node server/catalogue-cli.mjs",
     "crawl": "node scripts/crawl-python.mjs scripts/forum_crawl.py",
     "review:crawl": "node scripts/crawl-python.mjs scripts/forum_review.py",
@@ -29,7 +29,9 @@
     "context:review": "node scripts/review-viewing-context.mjs",
     "pipeline:probe": "node scripts/crawl-python.mjs scripts/forum_access_probe.py",
     "catalogue:migrate": "node scripts/migrate-catalogue.mjs",
-    "package:plugin": "node scripts/package-plugin.mjs"
+    "package:plugin": "node scripts/package-plugin.mjs",
+    "export:icon": "node scripts/export-icon.mjs",
+    "package:pilot": "node scripts/package-plugin.mjs --portable"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^2.0.3",
@@ -41,6 +43,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "supabase": "2.122.0",
     "vercel": "65.9.0"
   },

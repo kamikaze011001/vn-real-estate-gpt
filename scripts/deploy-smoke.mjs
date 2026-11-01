@@ -19,6 +19,9 @@ try {
   const landing = await fetch(new URL('/', base), { headers }).then(r => { assert.equal(r.status, 200); return r.text(); });
   assert.ok(landing.includes('id="cach-dung"'), 'public website must serve the user guide');
   assert.ok(landing.includes('id="live-cards"'), 'public website must include the collected-source preview');
+  assert.ok(landing.includes('href="/pilot"'),'public call to action must lead to the personal-account pilot guide');
+  const pilot = await fetch(new URL('/pilot',base),{headers}).then(r=>{assert.equal(r.status,200);return r.text();});
+  assert.ok(pilot.includes('https://vn-real-estate-gpt.vercel.app/mcp'));
   const icon = await fetch(new URL(new URL(identity.icons[0].src).pathname, base), { headers });
   assert.equal(icon.status, 200);
   assert.ok(icon.headers.get('content-type').includes('image/png'));

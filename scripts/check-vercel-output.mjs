@@ -6,6 +6,7 @@ const output = resolve('.vercel/output');
 const landing = readFileSync(resolve(output, 'static/index.html'), 'utf8');
 assert.ok(landing.includes('id="cach-dung"'), 'Vercel static root must be the landing page, not the embedded widget');
 assert.ok(existsSync(resolve(output, 'static/assets/icon-512.png')), 'public PNG icon must be in static output');
+assert.ok(existsSync(resolve(output, 'static/pilot.html')), 'pilot guide must be in the static artifact');
 const fn = resolve(output, 'functions/api/index.func');
 const config = JSON.parse(readFileSync(resolve(fn, '.vc-config.json'), 'utf8'));
 for (const file of ['dist/index.html', 'dist-research/index.html']) {
