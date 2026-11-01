@@ -39,7 +39,8 @@ export class SupabaseStore {
       p_state: state, p_expires_at: new Date(state.updatedAt + 3600000).toISOString(),
     } });
   }
-  async researchRecords() {
+  async researchRecords() { return (await this.researchSnapshot()).records; }
+  async researchSnapshot() {
     const clock = Date.now(), current = `gt.${new Date(clock).toISOString()}`;
     const [rows, names] = await Promise.all([
       this.request(`sale_candidates?${new URLSearchParams({ expires_at:current, select:'id,source_id,source_key,source_url,fingerprint,payload,checked_at,expires_at', order:'checked_at.desc,id.asc', limit:'500' })}`),
@@ -50,14 +51,18 @@ export class SupabaseStore {
     for(let offset=0;offset<ids.length;offset+=100){const group=ids.slice(offset,offset+100);batches.push(Promise.all([
       this.request(`candidate_reviews?${new URLSearchParams({select:'candidate_id,fingerprint,decision',decision:'eq.reject',candidate_id:`in.(${group.join(',')})`})}`),
       this.request(`candidate_assessments?${new URLSearchParams({select:'candidate_id,fingerprint,decision,facts,duplicate_group,duplicate_status',candidate_id:`in.(${group.join(',')})`})}`),
+      this.request(`candidate_context_reviews?${new URLSearchParams({select:'candidate_id,fingerprint,project_id,building_id,match_level,reviewed_at,review_due_at',candidate_id:`in.(${group.join(',')})`})}`),
     ]));}
     const grouped=await Promise.all(batches),reviews=grouped.flatMap(x=>x[0]),assessments=grouped.flatMap(x=>x[1]);
-    const assessed=new Map();
+    const assessed=new Map(), contextReviews=new Map();
+    const contexts=grouped.flatMap(x=>x[2]);
+    for(const row of rows){const review=contexts.find(a=>a.candidate_id===row.id&&a.fingerprint===row.fingerprint);if(review)contextReviews.set('research-'+fingerprint(row.source_key).slice(0,20),review);}
     for(const row of rows){const assessment=assessments.find(a=>a.candidate_id===row.id&&a.fingerprint===row.fingerprint);if(assessment)assessed.set('research-'+fingerprint(row.source_key).slice(0,20),assessment);}
     const curated = names.flatMap(row => { const result = leadSchema.safeParse(row.payload); return result.success && Date.parse(result.data.expiresAt)>clock ? [result.data] : []; });
     // No static/demo fallback: the live inbox alone controls current membership and dates.
-    return applySupplyPolicy(candidateResearch(rows, curated, reviews, clock),assessed,clock).sort((a,b) =>
+    const records = applySupplyPolicy(candidateResearch(rows, curated, reviews, clock),assessed,clock).sort((a,b) =>
       Number(a.sourceStatus === 'source-expired') - Number(b.sourceStatus === 'source-expired') || Date.parse(b.collectedAt)-Date.parse(a.collectedAt));
+    return {records,contextReviews};
   }
   async replaceResearch(leads) {
     const safe = z.array(leadSchema).max(50).parse(leads);

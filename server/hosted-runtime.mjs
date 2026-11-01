@@ -12,13 +12,13 @@ export class HostedRuntime {
   async runWithContext(kind, args, action, catalogue) {
     const id = kind === 'research' ? args.researchSessionId : args.explorerSessionId;
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const [row, records] = await Promise.all([
+      const [row, snapshot] = await Promise.all([
         id ? this.store.load(kind, id) : null,
-        kind === 'research' ? this.store.researchRecords() : null,
+        kind === 'research' ? (this.store.researchSnapshot ? this.store.researchSnapshot() : this.store.researchRecords().then(records => ({records}))) : null,
       ]);
       const original = row ? JSON.stringify(row.state) : null;
       const states = new Map(row ? [[id, structuredClone(row.state)]] : []);
-      const result = await inOperation({ sessions: new Map([[kind, states]]), researchRecords: records, catalogue }, action);
+      const result = await inOperation({ sessions: new Map([[kind, states]]), researchRecords: snapshot?.records, contextReviews: snapshot?.contextReviews, catalogue }, action);
       if (result?.isError) return result;
       let conflict = false;
       for (const [key, state] of states) {

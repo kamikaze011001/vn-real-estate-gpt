@@ -52,8 +52,12 @@ try {
       const selected = research.leads.slice(0, 2).map(x => x.id);
       await call('set_research_selection', { researchSessionId: research.researchSessionId, ids: selected });
       assert.deepEqual((await call('compare_research_leads', { researchSessionId: research.researchSessionId })).leads.map(x => x.id), selected);
+      const brief = await call('show_viewing_brief', { researchSessionId: research.researchSessionId, requirements: { maxPriceVnd: 4e9 } });
+      assert.deepEqual(brief.viewingBrief.items.map(x=>x.leadId),selected);
+      assert.deepEqual(brief.selectedLeadIds,selected);
+      assert.equal((await call('get_viewing_brief',{researchSessionId:research.researchSessionId})).requirements.maxPriceVnd,4e9);
     }
-    await client.readResource({ uri: 'ui://hanoi-home/research-v4.html' });
+    await client.readResource({ uri: 'ui://hanoi-home/research-v5.html' });
   }
   console.log(JSON.stringify({ ok: true, origin: base.origin, sessionBackend: health.sessionBackend, sources, selectionComparison: 'passed' }));
 } finally { await client.close(); }
