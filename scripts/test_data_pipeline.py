@@ -2,15 +2,34 @@ import json
 import io
 import sqlite3
 import tempfile
+import time
 import unittest
-from contextlib import redirect_stdout
-from datetime import datetime, timezone
+from contextlib import redirect_stdout, redirect_stderr
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 
 from forum_crawl import database, save_item
 from data_pipeline import projection, refresh, collect, main
+
+
+class MemoryStore:
+    def __init__(self, sources=None):
+        self.sources = sources if sources is not None else [{'id': 'otofun'}, {'id': 'voz'}]
+        self.finished = []
+        self.queries = []
+
+    def request(self, path):
+        self.queries.append(path)
+        return self.sources if path.startswith('collection_sources') else []
+
+    def rpc(self, name, **args):
+        if name == 'claim_daily_run':
+            return 'lease'
+        if name == 'finish_daily_run':
+            self.finished.append(args)
+            return len(args['p_items'])
 
 
 class PipelineTests(unittest.TestCase):
@@ -102,7 +121,97 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result['source_diagnostics']['otofun']['http_statuses'], {'503': 1})
         self.assertEqual(result['source_diagnostics']['otofun']['error_counts'], {'robots-policy-unavailable': 1})
         self.assertEqual(result['source_diagnostics']['voz']['errors'], 0)
+        self.assertEqual(result['outcome'], 'partial')
         self.assertNotIn('private', json.dumps(result))
+
+    def test_adapter_crash_preserves_other_source_data_and_does_not_leak_exception(self):
+        store = MemoryStore()
+        def healthy_voz(db, *_args, **_kwargs):
+            save_item(db, 'voz', 'https://voz.vn/t/test.200/', 'Cần bán căn hộ Hà Nội',
+                      {'key': 'post-201', 'text': 'Cần bán căn hộ Hà Nội 72m2 2 phòng ngủ giá 4 tỷ',
+                       'source_url': 'https://voz.vn/t/test.200/#post-201', 'posted_at': '2026-10-20',
+                       'format': 'public-post', 'post_role': 'opening-ad'}, 'external-supplier-lead-discovery')
+            return {'errors': []}
+        with patch('data_pipeline.marketplace', side_effect=RuntimeError('private owner@example.com')), \
+             patch('data_pipeline.crawl', side_effect=healthy_voz):
+            result = collect(store, 'test')
+        self.assertEqual(result['outcome'], 'partial')
+        self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'ok'})
+        self.assertEqual([x['source_id'] for x in store.finished[0]['p_items']], ['voz'])
+        self.assertFalse(store.finished[0]['p_items'][0]['payload']['publication_ready'])
+        self.assertNotIn('owner@example.com', json.dumps(result))
+        self.assertEqual(len(store.finished), 1)
+
+    def test_cooldown_skips_only_failed_source_and_does_not_disable_it(self):
+        future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+        store = MemoryStore([{'id': 'otofun', 'retry_after': future, 'failure_count': 2}, {'id': 'voz'}])
+        with patch('data_pipeline.marketplace') as market, patch('data_pipeline.crawl', return_value={'errors': []}) as voz:
+            result = collect(store, 'test')
+        market.assert_not_called()
+        voz.assert_called_once()
+        self.assertEqual(result['source_states'], {'otofun': 'cooldown', 'voz': 'ok'})
+        self.assertEqual(result['attempted_sources'], ['voz'])
+        self.assertEqual(result['outcome'], 'partial')
+        self.assertEqual(store.finished[0]['p_summary']['enabled_sources'], ['otofun', 'voz'])
+
+    def test_all_cooled_sources_defer_without_requests_or_counter_updates(self):
+        future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+        store = MemoryStore([{'id': 'otofun', 'retry_after': future}, {'id': 'voz', 'retry_after': future}])
+        with patch('data_pipeline.marketplace') as market, patch('data_pipeline.crawl') as voz:
+            result = collect(store, 'test')
+        market.assert_not_called()
+        voz.assert_not_called()
+        self.assertEqual(result['outcome'], 'deferred')
+        self.assertEqual(result['attempted_sources'], [])
+        self.assertEqual(result['requests'], 0)
+        self.assertFalse(any(q.startswith('sale_candidates') for q in store.queries))
+
+    def test_all_sources_failing_is_a_real_failed_run(self):
+        store = MemoryStore()
+        with patch('data_pipeline.marketplace', side_effect=RuntimeError('private')), \
+             patch('data_pipeline.crawl', side_effect=RuntimeError('private')):
+            result = collect(store, 'test')
+        self.assertEqual(result['outcome'], 'failed')
+        self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'failed'})
+
+    def test_slow_source_hits_its_budget_and_next_source_still_runs(self):
+        store = MemoryStore()
+        def worker(source, *_args):
+            if source == 'otofun':
+                time.sleep(2)
+            return {'state': 'ok', 'items': [], 'diagnostics': {
+                'errors': 0, 'error_counts': {}, 'requests': 0, 'records_observed': 0,
+                'http_statuses': {}, 'network_errors': {}}}
+        with patch('data_pipeline.SOURCE_BUDGET_SECONDS', 0.03), patch('data_pipeline.run_source', side_effect=worker):
+            result = collect(store, 'test')
+        self.assertEqual(result['outcome'], 'partial')
+        self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'ok'})
+        self.assertEqual(result['source_diagnostics']['otofun']['error_counts'], {'source-time-budget': 1})
+
+    def test_partial_cli_succeeds_and_emits_a_ci_warning(self):
+        out, err = io.StringIO(), io.StringIO()
+        with patch('data_pipeline.Store'), patch('data_pipeline.collect', return_value={'outcome': 'partial'}), \
+             patch('sys.argv', ['pipeline', 'collect', '--apply']), \
+             patch.dict('os.environ', {'GITHUB_ACTIONS': 'true'}), redirect_stdout(out), redirect_stderr(err):
+            main()
+        self.assertEqual(json.loads(out.getvalue())['outcome'], 'partial')
+        self.assertIn('::warning', err.getvalue())
+
+    def test_recent_usable_run_is_found_beyond_five_failed_runs(self):
+        stamp = datetime.now(timezone.utc).isoformat()
+        out = io.StringIO()
+        def history(path):
+            if 'outcome=in.' in path:
+                return [{'outcome': 'completed', 'completed_at': stamp}]
+            if path.startswith('collection_sources'):
+                return []
+            return [{'outcome': 'failed', 'completed_at': stamp} for _ in range(5)]
+        with patch('data_pipeline.Store') as store, patch('sys.argv', ['pipeline', 'status']), redirect_stdout(out):
+            store.return_value.request.side_effect = history
+            main()
+        result = json.loads(out.getvalue())
+        self.assertFalse(result['stale'])
+        self.assertFalse(result['healthy'])
 
     def test_recent_success_does_not_hide_latest_failed_run(self):
         stamp = datetime.now(timezone.utc).isoformat()

@@ -4,6 +4,7 @@ import errno
 import hashlib
 import http.client
 import json
+import math
 import re
 import sqlite3
 import socket
@@ -155,6 +156,22 @@ def source_stopped(fetcher, source):
             or any(publisher(host) == source for host in fetcher.blocked))
 
 
+def retry_after_seconds(value, stamp=None):
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        if re.fullmatch(r'[0-9]+', value.strip()):
+            seconds = int(value)
+        else:
+            due = parsedate_to_datetime(value)
+            if due.tzinfo is None:
+                return None
+            seconds = math.ceil((due - (stamp or datetime.now(timezone.utc))).total_seconds())
+        return min(2147483647, max(0, seconds))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 class Fetcher:
     def __init__(self, db, delay=2):
         self.db, self.delay = db, delay
@@ -166,6 +183,7 @@ class Fetcher:
         # Transient outages stop this publisher for this run, including its aliases.
         # A fresh worker retries normally; no access restriction is cleared here.
         self.unavailable = {}
+        self.retry_after = {}
 
     def close(self):
         self.session.close()
@@ -201,7 +219,11 @@ class Fetcher:
             self.log(url, status, None)
             return body, content_type
         except HTTPError as error:
+            retry = retry_after_seconds((error.headers or {}).get('Retry-After'))
+            if retry is not None:
+                self.retry_after[publisher(host)] = retry
             self.log(url, error.code, "HTTP response")
+            error.close()
             raise
         except (OSError, TimeoutError) as error:
             kind = network_failure(error)
@@ -215,9 +237,12 @@ class Fetcher:
 
     def get(self, url, html=False):
         url = public_url(url)
+        requested_source = publisher(urlsplit(url).hostname)
         for _ in range(4):
             parts = urlsplit(url)
             source = publisher(parts.hostname)
+            if source != requested_source:
+                raise ValueError('Redirect left the selected publisher')
             origin = f"https://{parts.hostname}"
             if any(publisher(host) == source for host in self.blocked):
                 raise AccessStopped(403, "Host stopped after an access/rate-limit response")

@@ -4,7 +4,11 @@ import hashlib
 import json
 import os
 import re
+import signal
+import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -14,6 +18,31 @@ from urllib.request import Request, build_opener
 from forum_crawl import (AccessStopped, Fetcher, KEYWORDS, NETWORK_FAILURES, NoRedirect, ROOT, crawl, database,
                          marketplace, now, parse_thread, save_item, source_stopped, thread_identity, thread_url)
 from forum_review import classify, revision
+
+SOURCE_BUDGET_SECONDS = 120
+
+
+class SourceBudgetExceeded(BaseException):
+    """Control flow must escape source adapters' ordinary exception handlers."""
+
+
+@contextmanager
+def source_budget(seconds):
+    # The private worker runs on macOS/Linux in its main thread, never inside MCP.
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+    def expire(_signum, _frame):
+        raise SourceBudgetExceeded()
+    signal.signal(signal.SIGALRM, expire)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_timer[0] > 0:
+            signal.setitimer(signal.ITIMER_REAL, max(0.001, previous_timer[0] - (time.monotonic() - started)), previous_timer[1])
 
 
 class Store:
@@ -128,59 +157,120 @@ def refresh(db, fetcher, known, enabled, diagnostics=None):
     return errors
 
 
+def empty_diagnostics():
+    return {'errors': 0, 'error_counts': {}, 'requests': 0, 'http_statuses': {},
+            'network_errors': {}, 'records_observed': 0}
+
+
+def source_error(details, category):
+    details['errors'] += 1
+    details['error_counts'][category] = details['error_counts'].get(category, 0) + 1
+
+
+def run_source(source, known, pages, threads):
+    """One publisher owns its temporary inbox, transport and error boundary."""
+    details, items, processed = empty_diagnostics(), [], 0
+    with tempfile.TemporaryDirectory(prefix=f'hanoi-{source}-') as tmp:
+        db = database(Path(tmp) / 'inbox.sqlite')
+        fetcher = None
+        try:
+            fetcher = Fetcher(db, 2)
+            try:
+                refresh(db, fetcher, known, {source}, {source: details})
+                if not source_stopped(fetcher, source):
+                    if source == 'otofun':
+                        result = marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher)
+                    elif source == 'voz':
+                        result = crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher)
+                    else:
+                        raise ValueError('Unsupported source adapter')
+                    for error in result.get('errors', []):
+                        record_error({source: details}, source, error.get('error', ''))
+            except Exception:
+                # Source text and exception messages never enter shared logs.
+                source_error(details, 'source-worker-error')
+            db.row_factory = __import__('sqlite3').Row
+            known_keys = {item['source_key'] for item in known if item['source_id'] == source}
+            for row in db.execute('select * from item order by id'):
+                try:
+                    item = projection(row, known_keys)
+                    processed += 1
+                    if item and item['source_id'] == source:
+                        items.append(item)
+                except Exception:
+                    source_error(details, 'projection-error')
+            originals = {item['source_key'].rsplit(':', 1)[0] for item in items if item['payload']['format'] == 'public-post'}
+            items = [item for item in items if item['payload']['format'] != 'rss-excerpt'
+                     or item['source_key'].rsplit(':', 1)[0] not in originals]
+            request_diagnostics(db, {source: details})
+            details['records_observed'] = db.execute('select count(*) from item').fetchone()[0]
+            if source in fetcher.retry_after:
+                details['retry_after_seconds'] = fetcher.retry_after[source]
+            blocked = any(('voz' if host == 'voz.vn' else 'otofun') == source for host in fetcher.blocked)
+            state = 'blocked' if blocked else ('partial' if processed else 'failed') if details['errors'] else 'ok'
+            return {'state': state, 'items': items, 'diagnostics': details}
+        finally:
+            if fetcher is not None:
+                fetcher.close()
+            db.close()
+
+
+def cooldown_active(source, stamp):
+    value = source.get('retry_after')
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        due = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return due.tzinfo is not None and due > stamp
+    except (TypeError, ValueError):
+        return False
+
+
 def collect(store, run_key, pages=3, threads=12):
     feeds = json.loads((ROOT / 'data/forum-feed-candidates.json').read_text())
     configured = {f['sourceId'] for f in feeds if f.get('collectionEnabled') and f.get('scheduledCollectionEnabled')}
-    allowed = store.request('collection_sources?select=id&scheduled=eq.true')
-    enabled = configured & {row['id'] for row in allowed}
+    # select=* is compatible with a worker starting before the additive migration.
+    allowed = store.request('collection_sources?select=*&scheduled=eq.true')
+    sources = {row['id']: row for row in allowed if row['id'] in configured}
+    enabled = set(sources)
     if not enabled:
         raise ValueError('No scheduled collection sources enabled')
     run_id = store.rpc('claim_daily_run', p_run_key=run_key)
     if not run_id:
         return {'outcome': 'skipped', 'reason': 'another-run-holds-lease'}
     try:
+        stamp = datetime.now(timezone.utc)
+        cooled = {source for source in enabled if cooldown_active(sources[source], stamp)}
+        due = sorted(enabled - cooled, key=lambda s: (sources[s].get('access_status') in {'blocked', 'failed', 'partial'}, s))
         known = store.request('sale_candidates?' + urlencode({'select': 'source_id,source_key,source_url,payload',
-                              'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '10'}))
-        with tempfile.TemporaryDirectory(prefix='hanoi-daily-') as tmp:
-            db = database(Path(tmp) / 'inbox.sqlite')
-            fetcher = None
+                              'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '10'})) if due else []
+        states = {source: 'cooldown' for source in cooled}
+        diagnostics = {source: {**empty_diagnostics(), 'retry_after': sources[source]['retry_after']} for source in cooled}
+        items = []
+        for source in due:
             try:
-                fetcher, outcomes = Fetcher(db, 2), []
-                diagnostics = {s: {'errors': 0, 'error_counts': {}, 'requests': 0, 'http_statuses': {}, 'network_errors': {}}
-                               for s in sorted(enabled)}
-                refresh(db, fetcher, known, enabled, diagnostics)
-                if 'otofun' in enabled and not source_stopped(fetcher, 'otofun'):
-                    outcomes.append(('otofun', marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher)))
-                # The VOZ feed is discovery only; exact original posts still require review.
-                if 'voz' in enabled and not source_stopped(fetcher, 'voz'):
-                    outcomes.append(('voz', crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher)))
-                db.row_factory = __import__('sqlite3').Row
-                items = [p for row in db.execute('select * from item order by id') if (p := projection(row, {item['source_key'] for item in known}))]
-                items = [p for p in items if p['source_id'] in enabled]
-                # Prefer original-post identities over same-thread RSS excerpts within this batch.
-                originals = {p['source_key'].rsplit(':', 1)[0] for p in items if p['payload']['format'] == 'public-post'}
-                items = [p for p in items if p['payload']['format'] != 'rss-excerpt' or p['source_key'].rsplit(':', 1)[0] not in originals]
-                for source, result in outcomes:
-                    for error in result.get('errors', []):
-                        record_error(diagnostics, source, error.get('error', ''))
-                request_diagnostics(db, diagnostics)
-                errors = sum(d['errors'] for d in diagnostics.values())
-                requests = db.execute('select count(*) from fetch_log').fetchone()[0]
-                outcome = 'partial' if errors and items else 'failed' if errors or not outcomes else 'completed'
-                observed = {row[0]: row[1] for row in db.execute('select source_id,count(*) from item group by source_id')}
-                for source, details in diagnostics.items():
-                    details['records_observed'] = observed.get(source, 0)
-                source_states = {s: 'blocked' if ('voz.vn' in fetcher.blocked if s == 'voz' else any('otofun' in h for h in fetcher.blocked))
-                                 else ('partial' if observed.get(s, 0) else 'failed') if diagnostics[s]['errors'] else 'ok' for s in sorted(enabled)}
-                summary = {'source_states': source_states, 'candidate_records': len(items), 'requests': requests, 'source_errors': errors,
-                           'source_diagnostics': diagnostics,
-                           'enabled_sources': sorted(enabled), 'published_listings': 0, 'raw_bodies_uploaded': False}
-                store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
-                return {'outcome': outcome, **summary}
-            finally:
-                if fetcher is not None:
-                    fetcher.close()
-                db.close()
+                with source_budget(SOURCE_BUDGET_SECONDS):
+                    result = run_source(source, known, pages, threads)
+            except SourceBudgetExceeded:
+                details = empty_diagnostics()
+                source_error(details, 'source-time-budget')
+                result = {'state': 'failed', 'items': [], 'diagnostics': details}
+            except Exception:
+                details = empty_diagnostics()
+                source_error(details, 'source-worker-error')
+                result = {'state': 'failed', 'items': [], 'diagnostics': details}
+            states[source], diagnostics[source] = result['state'], result['diagnostics']
+            items.extend(result['items'])
+        usable = sorted(source for source, state in states.items() if state in {'ok', 'partial'})
+        outcome = 'deferred' if not due else 'completed' if all(state == 'ok' for state in states.values()) else 'partial' if usable else 'failed'
+        summary = {'source_states': dict(sorted(states.items())), 'candidate_records': len(items),
+                   'requests': sum(d['requests'] for d in diagnostics.values()),
+                   'source_errors': sum(d['errors'] for d in diagnostics.values()),
+                   'source_diagnostics': dict(sorted(diagnostics.items())), 'usable_sources': usable,
+                   'attempted_sources': sorted(due), 'enabled_sources': sorted(enabled),
+                   'published_listings': 0, 'raw_bodies_uploaded': False}
+        stored = store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
+        return {'outcome': outcome, **summary, 'stored_candidate_records': stored}
     except Exception:
         try:
             store.rpc('finish_daily_run', p_run_id=run_id, p_items=[], p_outcome='failed', p_summary={'error': 'worker-failed', 'raw_bodies_uploaded': False})
@@ -211,11 +301,15 @@ def main():
         result = collect(store, os.environ.get('GITHUB_RUN_ID', datetime.now(timezone.utc).isoformat()), args.pages, args.threads)
     elif args.command == 'status':
         runs = store.request('ingestion_runs?select=id,started_at,completed_at,outcome,summary&order=started_at.desc&limit=5')
-        latest = next((r for r in runs if r['outcome'] in ('completed', 'partial')), None)
+        history = store.request('ingestion_runs?select=outcome,completed_at&outcome=in.(completed,partial)&order=completed_at.desc&limit=1')
+        latest = next((r for r in history if r['outcome'] in ('completed', 'partial')), None)
         stale = not latest or (datetime.now(timezone.utc) - datetime.fromisoformat(latest['completed_at'].replace('Z', '+00:00'))).total_seconds() > 30 * 3600
         latest_outcome = runs[0]['outcome'] if runs else None
         result = {'runs': runs, 'stale': stale, 'healthy': not stale and latest_outcome == 'completed',
-                  'latest_outcome': latest_outcome}
+                  'operational': not stale and latest_outcome in ('completed', 'partial'),
+                  'degraded': latest_outcome != 'completed', 'latest_outcome': latest_outcome,
+                  'sources': [{key: row.get(key) for key in ('id', 'access_status', 'checked_at', 'last_success_at', 'failure_count', 'retry_after')}
+                              for row in store.request('collection_sources?select=*') if row.get('id') in {'otofun', 'voz'}]}
     elif args.command == 'candidates':
         result = store.request('sale_candidates?' + urlencode({'select': '*', 'expires_at': 'gt.' + now(), 'order': 'checked_at.desc,id.asc', 'limit': '100'}))
         reviews = store.request('candidate_reviews?select=candidate_id,fingerprint,decision')
@@ -226,8 +320,11 @@ def main():
         store.rpc('review_sale_candidate', p_id=args.id, p_fingerprint=args.fingerprint, p_decision=args.decision, p_reviewer=args.reviewer, p_note=args.note)
         result = {'reviewed': args.id, 'decision': args.decision, 'published_listings': 0}
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    if args.command == 'collect' and result['outcome'] in ('failed', 'partial'):
-        raise SystemExit(1)
+    if args.command == 'collect':
+        if result['outcome'] in ('partial', 'deferred') and os.environ.get('GITHUB_ACTIONS') == 'true':
+            print('::warning title=Data collection degraded::Some sources are unavailable or cooling down; inspect source_states and pipeline status.', file=sys.stderr)
+        if result['outcome'] == 'failed':
+            raise SystemExit(1)
 
 
 if __name__ == '__main__':
