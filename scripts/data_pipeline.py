@@ -67,7 +67,37 @@ def projection(row, known_keys=()):
             'fingerprint': revision(raw), 'payload': payload, 'checked_at': row['last_seen_at'], 'expires_at': row['expires_at']}
 
 
-def refresh(db, fetcher, known, enabled):
+def record_error(diagnostics, source, error):
+    # Only fixed categories leave the worker. Exception strings can contain source content.
+    message = str(error)
+    status = getattr(error, 'status', None)
+    http = re.search(r'\bHTTP ([1-5][0-9]{2})\b', message)
+    reason = ('robots-policy-unavailable' if message == 'Cannot establish robots policy' else
+              'robots-disallowed' if message == 'robots-disallowed' else
+              'network-error' if message == 'Network request failed' else
+              'http-' + str(status) if status else
+              'http-' + http[1] if http else
+              'parse-or-policy-error')
+    details = diagnostics[source]
+    details['errors'] += 1
+    details['error_counts'][reason] = details['error_counts'].get(reason, 0) + 1
+
+
+def request_diagnostics(db, diagnostics):
+    for url, status, error in db.execute('select url,status,error from fetch_log'):
+        host = urlsplit(url).hostname
+        source = 'voz' if host == 'voz.vn' else 'otofun' if host in {'www.otofun.net.vn', 'www.otofun.net'} else None
+        if source not in diagnostics:
+            continue
+        details = diagnostics[source]
+        details['requests'] += 1
+        code = str(status) if 100 <= status <= 599 else 'no-response'
+        details['http_statuses'][code] = details['http_statuses'].get(code, 0) + 1
+        if status == 0 and error in {'TimeoutError', 'URLError', 'OSError', 'SSLError', 'ConnectionResetError'}:
+            details['network_errors'][error] = details['network_errors'].get(error, 0) + 1
+
+
+def refresh(db, fetcher, known, enabled, diagnostics=None):
     errors = 0
     for item in known:
         if item['source_id'] not in enabled:
@@ -92,8 +122,10 @@ def refresh(db, fetcher, known, enabled):
                 raise ValueError('Source identity changed')
             post.update(post_role=item['payload'].get('post_role') or 'opening-post', collection_role=item['payload'].get('collection_role') or 'property-discussion-and-lead-discovery')
             save_item(db, source, url, parsed['title'], post, 'external-supplier-lead-discovery')
-        except (AccessStopped, ValueError):
+        except (AccessStopped, ValueError) as error:
             errors += 1
+            if diagnostics is not None:
+                record_error(diagnostics, item['source_id'], error)
     return errors
 
 
@@ -114,23 +146,34 @@ def collect(store, run_key, pages=3, threads=12):
             db = database(Path(tmp) / 'inbox.sqlite')
             try:
                 fetcher, outcomes = Fetcher(db, 2), []
-                errors = refresh(db, fetcher, known, enabled)
+                diagnostics = {s: {'errors': 0, 'error_counts': {}, 'requests': 0, 'http_statuses': {}, 'network_errors': {}}
+                               for s in sorted(enabled)}
+                refresh(db, fetcher, known, enabled, diagnostics)
                 if 'otofun' in enabled and not any('otofun' in h for h in fetcher.blocked):
-                    outcomes.append(marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher))
+                    outcomes.append(('otofun', marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher)))
                 # The VOZ feed is discovery only; exact original posts still require review.
                 if 'voz' in enabled:
-                    outcomes.append(crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher))
+                    outcomes.append(('voz', crawl(db, {'voz'}, 4, 2, 2, KEYWORDS, fetcher=fetcher)))
                 db.row_factory = __import__('sqlite3').Row
                 items = [p for row in db.execute('select * from item order by id') if (p := projection(row, {item['source_key'] for item in known}))]
                 items = [p for p in items if p['source_id'] in enabled]
                 # Prefer original-post identities over same-thread RSS excerpts within this batch.
                 originals = {p['source_key'].rsplit(':', 1)[0] for p in items if p['payload']['format'] == 'public-post'}
                 items = [p for p in items if p['payload']['format'] != 'rss-excerpt' or p['source_key'].rsplit(':', 1)[0] not in originals]
-                errors += sum(len(o.get('errors', [])) for o in outcomes)
+                for source, result in outcomes:
+                    for error in result.get('errors', []):
+                        record_error(diagnostics, source, error.get('error', ''))
+                request_diagnostics(db, diagnostics)
+                errors = sum(d['errors'] for d in diagnostics.values())
                 requests = db.execute('select count(*) from fetch_log').fetchone()[0]
                 outcome = 'partial' if errors and items else 'failed' if errors or not outcomes else 'completed'
-                source_states = {s: 'blocked' if ('voz.vn' in fetcher.blocked if s == 'voz' else any('otofun' in h for h in fetcher.blocked)) else 'partial' if errors else 'ok' for s in enabled}
+                observed = {row[0]: row[1] for row in db.execute('select source_id,count(*) from item group by source_id')}
+                for source, details in diagnostics.items():
+                    details['records_observed'] = observed.get(source, 0)
+                source_states = {s: 'blocked' if ('voz.vn' in fetcher.blocked if s == 'voz' else any('otofun' in h for h in fetcher.blocked))
+                                 else ('partial' if observed.get(s, 0) else 'failed') if diagnostics[s]['errors'] else 'ok' for s in sorted(enabled)}
                 summary = {'source_states': source_states, 'candidate_records': len(items), 'requests': requests, 'source_errors': errors,
+                           'source_diagnostics': diagnostics,
                            'enabled_sources': sorted(enabled), 'published_listings': 0, 'raw_bodies_uploaded': False}
                 store.rpc('finish_daily_run', p_run_id=run_id, p_items=items, p_outcome=outcome, p_summary=summary)
                 return {'outcome': outcome, **summary}
@@ -167,7 +210,10 @@ def main():
     elif args.command == 'status':
         runs = store.request('ingestion_runs?select=id,started_at,completed_at,outcome,summary&order=started_at.desc&limit=5')
         latest = next((r for r in runs if r['outcome'] in ('completed', 'partial')), None)
-        result = {'runs': runs, 'stale': not latest or (datetime.now(timezone.utc) - datetime.fromisoformat(latest['completed_at'].replace('Z', '+00:00'))).total_seconds() > 30 * 3600}
+        stale = not latest or (datetime.now(timezone.utc) - datetime.fromisoformat(latest['completed_at'].replace('Z', '+00:00'))).total_seconds() > 30 * 3600
+        latest_outcome = runs[0]['outcome'] if runs else None
+        result = {'runs': runs, 'stale': stale, 'healthy': not stale and latest_outcome == 'completed',
+                  'latest_outcome': latest_outcome}
     elif args.command == 'candidates':
         result = store.request('sale_candidates?' + urlencode({'select': '*', 'expires_at': 'gt.' + now(), 'order': 'checked_at.desc,id.asc', 'limit': '100'}))
         reviews = store.request('candidate_reviews?select=candidate_id,fingerprint,decision')

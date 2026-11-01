@@ -47,7 +47,9 @@ An access stop is shared across run phases. No cookies, browser identities, alte
 
 Minimal candidate snapshots and observations expire after fourteen days; purge occurs on the next run claim, with read-time expiry filtering. Operational run records expire after sixty days. Candidate history is a source-observation history, not verified supplier price history. The separate seven-source public research snapshot still requires its existing manual reviewed sync; daily collection does not overwrite it.
 
-GitHub scheduling is best-effort and public-repository schedules can stop after sixty inactive days. The status command exposes last successful/partial run age, not an independent alerting service. A partial run can still leave an individual source stale: inspect `source_states`. No automatic external notifications, contacts with suppliers, paid services or market-wide statistics are introduced.
+GitHub scheduling is best-effort and public-repository schedules can stop after sixty inactive days. The status command reports `healthy` (latest run completed and recent), `latest_outcome`, and `stale` (no completed/partial run within thirty hours). A recent older success can mean `stale: false` while `healthy: false`; freshness alone does not establish pipeline health. This is not an independent alerting service. Inspect per-source `source_states` and `source_diagnostics`: counts of observed records, errors by fixed category, HTTP statuses and network exception categories. Diagnostics exclude URLs, raw error strings, headers and content. A failing source no longer marks a successful source partial. Missing historical diagnostics cannot be reconstructed from the aggregate old summary. No automatic external notifications, contacts with suppliers, paid services or market-wide statistics are introduced.
+
+See [the 1 November pipeline audit](data-pipeline-audit-2026-11-01.md) for the verified storage locations, failed scheduled run and remaining publication gap.
 
 ## Validation
 

@@ -1,12 +1,15 @@
 import json
+import io
 import sqlite3
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from forum_crawl import database, save_item
-from data_pipeline import projection, refresh, collect
+from data_pipeline import projection, refresh, collect, main
 
 
 class PipelineTests(unittest.TestCase):
@@ -77,3 +80,55 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(store.calls[-1][0], 'finish_daily_run')
         self.assertEqual(store.calls[-1][1]['p_items'], [])
         self.assertEqual(store.calls[-1][1]['p_outcome'], 'failed')
+
+    def test_source_failure_has_safe_diagnostics_without_tainting_other_source(self):
+        class Store:
+            def request(self, path):
+                return [{'id': 'otofun'}, {'id': 'voz'}] if path.startswith('collection_sources') else []
+            def rpc(self, name, **args):
+                return 'lease' if name == 'claim_daily_run' else None
+
+        def failed_marketplace(db, **_kwargs):
+            db.execute("INSERT INTO fetch_log(url,status,error,fetched_at) VALUES(?,503,?,?)",
+                       ('https://www.otofun.net.vn/robots.txt', 'private details must not escape', '2026-11-01'))
+            return {'errors': [{'url': 'https://www.otofun.net.vn/private-sensitive-path',
+                                'error': 'Cannot establish robots policy'}]}
+
+        with patch('data_pipeline.marketplace', side_effect=failed_marketplace), \
+             patch('data_pipeline.crawl', return_value={'errors': []}):
+            result = collect(Store(), 'test')
+        self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'ok'})
+        self.assertEqual(result['source_diagnostics']['otofun']['http_statuses'], {'503': 1})
+        self.assertEqual(result['source_diagnostics']['otofun']['error_counts'], {'robots-policy-unavailable': 1})
+        self.assertEqual(result['source_diagnostics']['voz']['errors'], 0)
+        self.assertNotIn('private', json.dumps(result))
+
+    def test_recent_success_does_not_hide_latest_failed_run(self):
+        stamp = datetime.now(timezone.utc).isoformat()
+        runs = [{'outcome': 'failed', 'completed_at': stamp, 'summary': {}},
+                {'outcome': 'completed', 'completed_at': stamp, 'summary': {}}]
+        out = io.StringIO()
+        with patch('data_pipeline.Store') as store, patch('sys.argv', ['pipeline', 'status']), redirect_stdout(out):
+            store.return_value.request.return_value = runs
+            main()
+        result = json.loads(out.getvalue())
+        self.assertFalse(result['stale'])
+        self.assertFalse(result['healthy'])
+        self.assertEqual(result['latest_outcome'], 'failed')
+
+    def test_status_distinguishes_healthy_partial_stale_and_empty_history(self):
+        stamp = datetime.now(timezone.utc).isoformat()
+        for runs, healthy, stale in [
+            ([{'outcome': 'completed', 'completed_at': stamp}], True, False),
+            ([{'outcome': 'partial', 'completed_at': stamp}], False, False),
+            ([{'outcome': 'completed', 'completed_at': '2000-01-01T00:00:00+00:00'}], False, True),
+            ([], False, True),
+        ]:
+            with self.subTest(runs=runs):
+                out = io.StringIO()
+                with patch('data_pipeline.Store') as store, patch('sys.argv', ['pipeline', 'status']), redirect_stdout(out):
+                    store.return_value.request.return_value = runs
+                    main()
+                result = json.loads(out.getvalue())
+                self.assertEqual(result['healthy'], healthy)
+                self.assertEqual(result['stale'], stale)
