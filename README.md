@@ -164,3 +164,5 @@ Tests cover hard constraints, missing values, Vietnamese area matching, unavaila
 - [Real-listing submission template](docs/pilot/listing-submission-template.md)
 
 This implementation adapts the transport and registration pattern from OpenAI's [MCP server and UI quickstart](https://developers.openai.com/plugins/build/app-quickstart), using the [current MCP Apps bridge](https://developers.openai.com/plugins/build/chatgpt-ui). The [official examples](https://github.com/openai/openai-apps-sdk-examples) were reviewed; the small vanilla baseline avoids copying a full showcase or requiring a map-provider key for the first prototype. The installed `chatgpt-apps` skill guides this workflow.
+
+Viewing-preparation brief: [behavior, source review operation and five-minute pilot protocol](docs/pilot/viewing-brief.md). `npm run context:review -- PRIVATE_JSON_FILE` applies service-only, current-revision identity reviews; it does not publish inventory.

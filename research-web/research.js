@@ -5,7 +5,7 @@ import './style.css';
 const $ = id => document.getElementById(id);
 const hosted = window.parent !== window;
 document.documentElement.dataset.hosted = String(hosted);
-const state = { data: null, ids: [], focused: null, view: 'list', synced: false, writing: 0, sending: false, queryNumber: 0 };
+const state = { data: null, ids: [], focused: null, view: 'list', synced: false, writing: 0, sending: false, queryNumber: 0, preparing: false };
 let bridge, connected = false, host = {}, writes = Promise.resolve(), writeVersion = 0;
 const date = value => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Chưa rõ';
 const localDate = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
@@ -32,7 +32,7 @@ function expressions(lead, kind) {
 function facts(lead) { const dl = node('dl', undefined, 'facts'); for (const [label, kind] of [['Giá trong nguồn', 'price'], ['Diện tích trong nguồn', 'area'], ['Phòng ngủ trong nguồn', 'bedroom']]) { const row = node('div'); row.append(node('dt', label), node('dd', expressions(lead, kind))); dl.append(row); } return dl; }
 async function tool(name, args) {
   if (hosted) { if (!connected) throw new Error('Chưa kết nối được với ChatGPT. Hãy mở lại nguồn tham khảo.'); const result = await bridge.callServerTool({ name, arguments: args }); if (result.isError) throw new Error(result.content?.find(item => item.type === 'text')?.text || 'Không đọc được nguồn.'); return result.structuredContent; }
-  const route = { show_research_explorer: 'show', set_research_selection: 'selection', get_research_context: 'context', compare_research_leads: 'compare' }[name];
+  const route = { show_research_explorer: 'show', set_research_selection: 'selection', get_research_context: 'context', compare_research_leads: 'compare', show_viewing_brief: 'brief' }[name];
   const response = await fetch(`/api/research/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(args) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Không đọc được nguồn.'); return data;
 }
 function receive(data, inputs = true) {
@@ -67,8 +67,69 @@ async function search(changes = {}) {
   catch (failure) { if (request === state.queryNumber) error(failure.message); }
   finally { if (request === state.queryNumber) { $('cards').setAttribute('aria-busy', 'false'); if (state.data) render(); else $('status').textContent = 'Chưa đọc được nguồn.'; } }
 }
-async function toggle(id) { if (state.sending) return; state.ids = state.ids.includes(id) ? state.ids.filter(key => key !== id) : [...state.ids, id].slice(0, 3); render(); await sync(); }
+async function toggle(id) { if (state.sending || state.preparing) return; state.ids = state.ids.includes(id) ? state.ids.filter(key => key !== id) : [...state.ids, id].slice(0, 3); render(); await sync(); }
 async function detail(id) { state.focused = id; state.view = 'details'; render(); $('detail-title').focus(); await sync(); }
+async function prepareBrief(ids = [...state.ids]) {
+  if (!ids.length || state.preparing || state.writing || state.sending) return;
+  const request = ++state.queryNumber, version = ++writeVersion;
+  const sessionId = state.data.researchSessionId;
+  state.preparing = true; state.synced = false; render(); error();
+  try {
+    writes = writes.catch(() => {}).then(() => tool('show_viewing_brief', { researchSessionId: sessionId, ids }));
+    const data = await writes;
+    if (request !== state.queryNumber || version !== writeVersion) return;
+    receive(data); $('brief-title').focus();
+    if (connected && !Object.keys(data.requirements ?? {}).length) await sendBriefRequirements(ids, sessionId);
+  } catch (failure) { if (request === state.queryNumber) error(failure.message); }
+  finally { state.preparing = false; render(); }
+}
+async function sendBriefRequirements(ids = state.data.viewingBrief?.items.map(item => item.leadId), sessionId = state.data.researchSessionId) {
+  if (!ids?.length || state.sending) return;
+  const labels = ids.map(getLead).filter(Boolean).map(lead => lead.label);
+  state.sending = true; $('brief-delivery').textContent = 'Đang nhờ ChatGPT gắn yêu cầu đã có trong cuộc trò chuyện…'; render();
+  try {
+    const prompt = `Chuẩn bị trước khi xem nhà cho ${labels.join(' và ')}. Đọc get_research_context với researchSessionId="${sessionId}", rồi gọi show_viewing_brief cho đúng IDs tại lúc bấm ${JSON.stringify(ids)}. Gắn các điều kiện bắt buộc tôi đã nêu trong cuộc trò chuyện vào requirements; giữ nguyên yêu cầu đã lưu và chỉ xóa khi tôi yêu cầu. Nếu tôi chưa nêu yêu cầu, vẫn mở bản chuẩn bị một phần, không hỏi thêm bảng câu hỏi. Giữ riêng tài liệu dự án có điều kiện với nhận dạng tòa đã kiểm chứng. Nêu ngắn bước tiếp theo và khoảng trống lớn nhất.`;
+    const result = await bridge.sendMessage({ role: 'user', content: [{ type: 'text', text: prompt }] });
+    if (result.isError) throw new Error('send failed');
+    $('brief-delivery').textContent = 'Đã gửi đến ChatGPT. Bản cập nhật sẽ dùng yêu cầu trong cuộc trò chuyện; bản hiện tại vẫn dùng được.';
+  } catch { $('brief-delivery').textContent = 'Chưa gửi được đến ChatGPT. Bạn vẫn có thể dùng bản hiện tại và bấm thử lại.'; }
+  finally { state.sending = false; render(); }
+}
+function sourceLink(label, url) {
+  const link = node('a', label, 'source-link'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+  if (hosted) link.addEventListener('click', event => { event.preventDefault(); void bridge.openLink({ url }).catch(() => error('Chưa mở được nguồn. Hãy thử lại.')); });
+  return link;
+}
+function renderBrief() {
+  const brief = state.data.viewingBrief; if (!brief) return;
+  const requirements = brief.requirements, names = [];
+  if (requirements.maxPriceVnd !== undefined) names.push(`Tối đa ${new Intl.NumberFormat('vi-VN').format(requirements.maxPriceVnd)} VND`);
+  if (requirements.minAreaM2 !== undefined) names.push(`Từ ${requirements.minAreaM2} m²`);
+  if (requirements.minBedrooms !== undefined) names.push(`Từ ${requirements.minBedrooms} phòng ngủ`);
+  names.push(...(requirements.areas ?? []), ...(requirements.otherMustHaves ?? []));
+  $('brief-requirements').textContent = names.length ? `Điều kiện bắt buộc đã ghi nhận: ${names.join(' · ')}. Thay đổi bằng cuộc trò chuyện; chưa xác nhận tin đáp ứng.` : 'Chưa gắn yêu cầu từ cuộc trò chuyện. Bản một phần vẫn có thông tin và câu hỏi để bắt đầu.';
+  $('brief-chat').hidden = !connected; $('brief-chat').disabled = state.sending || state.preparing;
+  const body = $('brief-body'), expanded = new Set([...body.querySelectorAll('details[open]')].map(item => item.dataset.leadId)); body.replaceChildren();
+  for (const item of brief.items) {
+    const article = node('article', undefined, 'brief-card');
+    article.append(node('p', item.actionLabel, `brief-action ${item.action}`), node('h3', item.label), node('p', item.reason, 'note'));
+    const finding = node('div', undefined, 'brief-finding'); finding.append(node('strong', 'Điều biết được từ nguồn'), node('p', item.keyFinding), node('p', item.associationLabel, 'note'));
+    const gap = node('div', undefined, 'brief-gap'); gap.append(node('strong', 'Khoảng trống lớn nhất'), node('p', item.biggestGap)); article.append(finding, gap);
+    if (item.context[0]) finding.append(sourceLink(`${item.context[0].publisher} · ${date(item.context[0].publishedAt)} ↗`, item.context[0].url));
+    const full = node('details', undefined, 'brief-full'), summary = node('summary', 'Xem đối chiếu, nguồn và câu hỏi'); full.dataset.leadId = item.leadId; full.open = expanded.has(item.leadId); full.append(summary);
+    const list = node('dl', undefined, 'brief-checks');
+    for (const check of item.checks) { const row = node('div'); row.append(node('dt', `${check.label} · ${check.status === 'unknown' ? 'Chưa rõ' : check.status === 'conflict' ? 'Mâu thuẫn yêu cầu' : 'Có nguồn đối chiếu'}`), node('dd', check.detail)); list.append(row); } full.append(list);
+    full.append(node('h4', 'Tài liệu để đối chiếu'));
+    if (!item.context.length) full.append(node('p', 'Chưa có tài liệu đã đối chiếu còn hạn cho phiên bản tin này. Không gắn tài liệu bằng tên gần giống.', 'note'));
+    for (const fact of item.context) {
+      const source = node('section', undefined, 'brief-source');
+      source.append(node('p', fact.text), sourceLink(`${fact.publisher} ↗`, fact.url), node('p', `${fact.scope === 'project' ? 'Cấp dự án' : 'Đúng tòa đã đối chiếu'} · ${fact.timeBasis === 'historical' ? 'Thông tin lịch sử' : fact.timeBasis === 'announced-period' ? 'Giai đoạn được công bố' : 'Chưa rõ thời điểm áp dụng'}`, 'badge'), node('p', `Ngày nguồn: ${date(fact.publishedAt)} · Kỳ áp dụng: ${fact.effectivePeriod ?? 'Chưa rõ'} · Kiểm tra: ${date(fact.checkedAt)} · Rà soát trước: ${date(fact.reviewDueAt)}`, 'note'), node('p', `Vị trí trong nguồn: ${fact.locator}`, 'note'), node('p', fact.limitation, 'note')); full.append(source);
+    }
+    full.append(node('h4', 'Hỏi người bán trước khi hẹn'));
+    const questions = node('ol', undefined, 'brief-questions');
+    item.questions.forEach(question => { const li = node('li'); li.append(node('p', question.question), node('p', question.why, 'note')); questions.append(li); }); full.append(questions, sourceLink('Mở tin rao gốc ↗', item.sourceUrl)); article.append(full); body.append(article);
+  }
+}
 async function compare() {
   if (state.ids.length < 2) return;
   try { await writes; await tool('compare_research_leads', { researchSessionId: state.data.researchSessionId }); state.view = 'comparison'; state.focused = null; render(); $('comparison-title').focus(); await sync(); }
@@ -77,21 +138,24 @@ async function compare() {
 function render() {
   if (!state.data) return;
   const focusedKey = document.activeElement?.dataset.selectKey;
+  $('research-overview').hidden = state.view === 'brief'; $('status').hidden = state.view === 'brief';
   $('status').textContent = state.writing ? 'Đang đồng bộ lựa chọn…' : `${state.data.total} nguồn · chưa xác minh${connected && state.ids.length && state.synced ? ' · ChatGPT đã nhận lựa chọn' : ''}`;
   const latest = state.data.leads.map(lead => lead.collectedAt).sort().at(-1);
   $('freshness').textContent = latest ? `Lần đọc nguồn gần nhất: ${localDate(latest)} (giờ Việt Nam). Đọc lại không có nghĩa là đã xác nhận còn bán.` : '';
   const counts=state.data.counts;
   $('coverage').textContent = `${counts.usableGroups}/100 nhóm tin đủ điều kiện · ${counts.projects}/10 dự án · ${counts.collected} nguồn thu thập · ${counts.needsContext} cần đối chiếu · ${counts.archive} lưu trữ`;
-  $('selection').hidden = state.ids.length === 0;
+  $('selection').hidden = state.ids.length === 0 || state.view === 'brief';
   $('selected-label').textContent = `Đã chọn ${state.ids.length} nguồn · tối đa 3`;
   $('selected-names').textContent = state.ids.map(getLead).filter(Boolean).map(lead => lead.label).join(' · ');
-  $('compare').disabled = state.ids.length < 2 || state.writing > 0 || state.sending;
+  $('compare').disabled = state.ids.length < 2 || state.writing > 0 || state.sending || state.preparing;
+  $('prepare-brief').disabled = !state.ids.length || state.writing > 0 || state.sending || state.preparing;
+  $('prepare-brief').textContent = state.preparing ? 'Đang chuẩn bị…' : 'Chuẩn bị trước khi xem nhà';
   $('cards').replaceChildren();
   for (const lead of state.data.leads) {
     const card = node('article', undefined, `card${state.ids.includes(lead.id) ? ' selected' : ''}`), top = node('div', undefined, 'card-top');
     top.append(node('span', lead.quality?.state === 'archive' ? 'Lưu trữ · chưa xác minh' : lead.quality?.state === 'usable' ? 'Đã đối chiếu theo nguồn' : 'Cần đối chiếu', 'badge'), node('span', `${lead.source} · ${date(lead.publishedAt??lead.displayedAt)}${!lead.publishedAt&&lead.displayedAt?' · ngày hiển thị':''}`));
     const actions = node('div', undefined, 'card-actions'), select = button(state.ids.includes(lead.id) ? 'Đã chọn' : 'Chọn so sánh', () => toggle(lead.id));
-    select.dataset.selectKey = lead.id; select.setAttribute('aria-label', `Chọn so sánh ${lead.label}`); select.setAttribute('aria-pressed', String(state.ids.includes(lead.id))); select.disabled = state.sending || (!state.ids.includes(lead.id) && state.ids.length >= 3);
+    select.dataset.selectKey = lead.id; select.setAttribute('aria-label', `Chọn so sánh ${lead.label}`); select.setAttribute('aria-pressed', String(state.ids.includes(lead.id))); select.disabled = state.sending || state.preparing || (!state.ids.includes(lead.id) && state.ids.length >= 3);
     actions.append(button('Xem nguồn', () => detail(lead.id), 'primary'), select);
       card.append(top, node('h3', lead.label));
       if(lead.quality?.projectLabel&&lead.quality.projectLabel!==lead.label)card.append(node('p',`Dự án đã đối chiếu: ${lead.quality.projectLabel}`,'note'));
@@ -103,7 +167,8 @@ function render() {
   $('empty').hidden = state.data.total > 0;
   $('empty').querySelector('h2').textContent = state.data.scope==='usable' ? 'Chưa có tin đủ điều kiện trong phạm vi này' : 'Chưa có nguồn trong phạm vi này';
   $('reset').textContent=state.data.scope==='usable'?'Xem nguồn cần đối chiếu':'Xem tất cả nguồn';
-  $('list-panel').hidden = state.view !== 'list'; $('detail-panel').hidden = state.view !== 'details'; $('comparison-panel').hidden = state.view !== 'comparison';
+  $('list-panel').hidden = state.view !== 'list'; $('detail-panel').hidden = state.view !== 'details'; $('comparison-panel').hidden = state.view !== 'comparison'; $('brief-panel').hidden = state.view !== 'brief';
+  if (state.view === 'brief') renderBrief();
   if (state.view === 'details') {
     const lead = getLead(state.focused), body = $('detail-body'); body.replaceChildren();
     if (lead) {
@@ -119,7 +184,8 @@ function render() {
       const list = node('ul', undefined, 'risk-list'); lead.risks.forEach(key => list.append(node('li', riskNames[key]))); list.append(node('li', 'Cần xác nhận còn bán, đúng căn/tòa, hoàn thành và giấy tờ; không coi các biểu thức nguồn là thông số đã duyệt.')); body.append(list);
       const link = node('a', 'Mở tin gốc ↗', 'source-link'); link.href = lead.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (hosted) link.addEventListener('click', event => { event.preventDefault(); void bridge.openLink({ url: lead.sourceUrl }).catch(() => error('Chưa mở được nguồn. Hãy thử lại.')); });
-      body.append(link, node('p', 'Chỉ hiển thị liên kết và dữ liệu nguồn tối thiểu; không sao chép mô tả, ảnh, liên hệ hoặc phản hồi tác giả.', 'note'));
+      const prepare = button('Chuẩn bị trước khi xem nhà', () => prepareBrief([lead.id]), 'primary'); prepare.disabled = state.preparing || state.writing > 0 || state.sending;
+      body.append(prepare, link, node('p', 'Chỉ hiển thị liên kết và dữ liệu nguồn tối thiểu; không sao chép mô tả, ảnh, liên hệ hoặc phản hồi tác giả.', 'note'));
     }
   }
   if (state.view === 'comparison') {
@@ -128,7 +194,7 @@ function render() {
     for (const [label, value] of [['Giá trong nguồn', lead => expressions(lead, 'price')], ['Diện tích trong nguồn', lead => expressions(lead, 'area')], ['Phòng ngủ trong nguồn', lead => expressions(lead, 'bedroom')], ['Bài gốc', lead => date(lead.publishedAt)], ['Trạng thái nguồn', lead => lead.sourceStatus === 'source-expired' ? 'Nguồn hết hạn' : 'Chưa xác minh'], ['Còn bán / hoàn thành / giấy tờ', () => 'Chưa xác nhận'], ['Đáp ứng yêu cầu của bạn', () => 'Chưa được kiểm chứng'], ['Cần làm rõ', lead => lead.risks.map(key => riskNames[key]).join(' ')]]) { const row = node('tr'), th = node('th', label); th.scope = 'row'; row.append(th); leads.forEach(lead => row.append(node('td', value(lead)))); body.append(row); }
     table.append(head, body); const scroll = $('comparison-body').scrollLeft; $('comparison-body').replaceChildren(table); $('comparison-body').scrollLeft = scroll;
   }
-  $('chat-action').hidden = !connected || state.view === 'list'; $('ask').disabled = state.writing > 0 || !state.synced || state.sending;
+  $('chat-action').hidden = !connected || state.view === 'list' || state.view === 'brief'; $('ask').disabled = state.writing > 0 || !state.synced || state.sending;
   if (focusedKey && state.view === 'list') [...document.querySelectorAll('[data-select-key]')].find(item => item.dataset.selectKey === focusedKey)?.focus({ preventScroll: true });
 }
 function hostContext(context = {}) {
@@ -144,6 +210,8 @@ $('next').addEventListener('click',()=>void search({page:state.data.page+1,view:
 $('filters').addEventListener('submit', event => { event.preventDefault(); void search({ page:1,query: $('query').value, scope: $('scope').value, view: 'list', focusedLeadId: null }); });
 $('reset').addEventListener('click', () => void search({ page:1,query: '', scope: state.data?.scope==='usable'?'research':'all', view: 'list', focusedLeadId: null }));
 $('clear').addEventListener('click', () => { state.ids = []; if (state.view === 'comparison') state.view = 'list'; render(); void sync(); });
+$('prepare-brief').addEventListener('click', () => void prepareBrief());
+$('brief-chat').addEventListener('click', () => void sendBriefRequirements());
 $('compare').addEventListener('click', () => void compare());
 document.querySelectorAll('[data-back]').forEach(item => item.addEventListener('click', () => { state.view = 'list'; state.focused = null; render(); void sync(); $('query').focus(); }));
 $('expand').addEventListener('click', async () => { try { await bridge.requestDisplayMode({ mode: 'fullscreen' }); } catch { error('Chưa mở rộng được. Bạn vẫn có thể xem nguồn trong khung hiện tại.'); } });
@@ -160,7 +228,7 @@ if (hosted) {
   bridge.ontoolresult = params => { if (params.structuredContent?.researchSessionId) receive(params.structuredContent); };
   bridge.onhostcontextchanged = hostContext;
   bridge.connect().then(() => { connected = true; hostContext(bridge.getHostContext()); render(); if (state.data) void sync(); }).catch(() => error('Chưa kết nối được với ChatGPT. Hãy mở lại nguồn tham khảo.'));
-  setInterval(async () => { if (!connected || !state.data || state.writing || state.sending || host.displayMode !== 'fullscreen' || document.visibilityState !== 'visible' || document.activeElement?.matches('input,select')) return; try { const data = await tool('get_research_context', { researchSessionId: state.data.researchSessionId }); if (data.revision !== state.data.revision) receive(data); } catch (failure) { error(failure.message); } }, 8000);
+  setInterval(async () => { if (!connected || !state.data || state.writing || state.sending || state.preparing || host.displayMode !== 'fullscreen' || document.visibilityState !== 'visible' || document.activeElement?.matches('input,select')) return; try { const data = await tool('get_research_context', { researchSessionId: state.data.researchSessionId }); if (data.revision !== state.data.revision) receive(data); } catch (failure) { error(failure.message); } }, 8000);
 } else {
   $('website-nav').hidden = false;
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;

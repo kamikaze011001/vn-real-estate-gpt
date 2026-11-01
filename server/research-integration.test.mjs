@@ -34,7 +34,7 @@ test('HTTP/MCP research keeps safe projection, resource, context and inventory i
   const tools = (await client.listTools()).tools;
   assert.ok(tools.find(tool => tool.name === 'search_research_leads').outputSchema.properties.researchOnly);
   assert.equal(tools.find(tool => tool.name === 'search_research_leads')._meta?.ui?.resourceUri, undefined);
-  assert.equal(tools.find(tool => tool.name === 'show_research_explorer')._meta.ui.resourceUri, 'ui://hanoi-home/research-v4.html');
+  assert.equal(tools.find(tool => tool.name === 'show_research_explorer')._meta.ui.resourceUri, 'ui://hanoi-home/research-v5.html');
   assert.deepEqual(tools.find(tool => tool.name === 'set_research_selection')._meta.ui.visibility, ['app']);
   const call = async (name, args = {}) => { const result = await client.callTool({ name, arguments: args }); if (result.isError) throw new Error(result.content[0].text); return result.structuredContent; };
   assert.equal((await call('search_research_leads', { query: 'my dinh',scope:'all' })).total, 3);
@@ -44,11 +44,21 @@ test('HTTP/MCP research keeps safe projection, resource, context and inventory i
   assert.equal((await call('get_research_context', { researchSessionId: session })).focusedLeadId, ids[0]);
   const comparison = await call('compare_research_leads', { researchSessionId: session });
   assert.deepEqual(comparison.leads.map(lead => lead.id), ids);
+  assert.equal(tools.find(t=>t.name==='get_viewing_brief')._meta?.ui?.resourceUri,undefined);
+  assert.equal(tools.find(t=>t.name==='show_viewing_brief').annotations.readOnlyHint,false);
+  const prepared=await call('show_viewing_brief',{researchSessionId:session,requirements:{maxPriceVnd:4e9,minBedrooms:2}});
+  assert.equal(prepared.view,'brief'); assert.deepEqual(prepared.selectedLeadIds,ids);
+  assert.equal(prepared.viewingBrief.items.length,2);assert.ok(prepared.viewingBrief.items.every(x=>x.action==='ask-first'&&x.context.length===0));
+  const readBrief=await call('get_viewing_brief',{researchSessionId:session});
+  assert.equal(readBrief.requirements.maxPriceVnd,4e9);
+  const httpBrief=await fetch(origin+'/api/research/brief',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({researchSessionId:session,ids:[ids[0]]})}).then(r=>r.json());
+  assert.equal(httpBrief.viewingBrief.items.length,1);assert.deepEqual(httpBrief.selectedLeadIds,ids);
+  for (const secret of ['PRIVATE BODY','fingerprint','evidence_ref','reviewer']) assert.ok(!JSON.stringify(prepared).includes(secret));
   for (const lead of comparison.leads) { assert.equal(lead.priceVnd, null); assert.equal(lead.requirementsVerified, false); }
   for (const secret of ['PRIVATE BODY', 'CONTACT SECRET', 'PRIVATE AUTHOR', 'sourceItemId', 'fingerprint']) assert.ok(!JSON.stringify(comparison).includes(secret));
   assert.equal((await call('search_properties')).demo, true);
   await assert.rejects(call('get_property', { id: ids[0] }), /Không tìm thấy/);
-  const resource = await client.readResource({ uri: 'ui://hanoi-home/research-v4.html' });
+  const resource = await client.readResource({ uri: 'ui://hanoi-home/research-v5.html' });
   assert.ok(resource.contents[0].mimeType.includes('mcp-app'));
   assert.ok(resource.contents[0].text.includes('get_research_context'));
   assert.ok(!resource.contents[0].text.includes('PRIVATE BODY'));

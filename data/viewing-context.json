@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "scope": "research-context-only",
+  "projects": [
+    {
+      "id": "ct36-metropolitan",
+      "label": "Metropolitan CT36 Định Công",
+      "buildingIds": [
+        "ct36-a",
+        "ct36-b"
+      ],
+      "notes": [
+        {
+          "id": "ct36-identity",
+          "topic": "identity",
+          "text": "Thông báo năm 2018 của Tổng công ty 36 mô tả Metropolitan CT36 tại Định Công gồm hai tòa A và B riêng biệt.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://36corp.com/thong-bao-moi-thau/",
+          "publisher": "Tổng công ty 36",
+          "authorType": "developer",
+          "publishedAt": "2018-05-24",
+          "effectivePeriod": null,
+          "timeBasis": "historical",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Mục 1: tổng quan tòa nhà",
+          "limitation": "Không xác nhận tòa A/B của tin rao; không nhầm với CT36 Tower 326 Lê Trọng Tấn."
+        },
+        {
+          "id": "ct36-occupied",
+          "topic": "completion",
+          "text": "Thông báo ngày 24/05/2018 ghi nhận đã có cư dân vào ở tại cả tòa A và tòa B.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://36corp.com/thong-bao-moi-thau/",
+          "publisher": "Tổng công ty 36",
+          "authorType": "developer",
+          "publishedAt": "2018-05-24",
+          "effectivePeriod": null,
+          "timeBasis": "historical",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Mục 1: số căn có cư dân",
+          "limitation": "Thông tin sử dụng lịch sử, không phải ngày bàn giao, nghiệm thu hoặc tình trạng hiện tại của căn."
+        },
+        {
+          "id": "ct36-parking",
+          "topic": "parking",
+          "text": "Thông báo năm 2018 mô tả khu đỗ ô tô ở các tầng 3–5, có thang nâng xe tại từng tòa.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://36corp.com/thong-bao-moi-thau/",
+          "publisher": "Tổng công ty 36",
+          "authorType": "developer",
+          "publishedAt": "2018-05-24",
+          "effectivePeriod": null,
+          "timeBasis": "historical",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Mục 1–2: khu đỗ xe",
+          "limitation": "Chưa xác nhận hiện trạng, chỗ trống, quyền đỗ xe hoặc phí cư dân. Giá mời thầu không phải biểu phí."
+        }
+      ]
+    },
+    {
+      "id": "oct3a-handiresco",
+      "label": "HANDIRESCO Cổ Nhuế–Xuân Đỉnh",
+      "buildingIds": [
+        "oct3a"
+      ],
+      "notes": [
+        {
+          "id": "oct3a-identity",
+          "topic": "identity",
+          "text": "Công bố ngày 21/05/2026 của HANDIRESCO đặt tòa OCT3A trong KĐT Cổ Nhuế–Xuân Đỉnh; địa chỉ cũ Cổ Nhuế 2/Bắc Từ Liêm được ghi là nay thuộc Đông Ngạc.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://handiresco.com/cong-khai-thong-tin-ve-bat-dong-san-cua-handiresco-n208.html",
+          "publisher": "HANDIRESCO",
+          "authorType": "developer",
+          "publishedAt": "2026-05-21",
+          "effectivePeriod": null,
+          "timeBasis": "historical",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Đoạn công bố thông tin dưới ngày đăng",
+          "limitation": "Dùng để đối chiếu nhận dạng dự án; chưa xác nhận tin rao thuộc OCT3A. Chưa đọc hồ sơ đính kèm."
+        },
+        {
+          "id": "oct3a-operator",
+          "topic": "operations",
+          "text": "HANDIRESCO thông báo ký hợp đồng vận hành OCT3A ngày 29/12/2023, với giai đoạn công bố từ 01/01/2024 đến 31/12/2026.",
+          "scope": "building",
+          "buildingId": "oct3a",
+          "url": "https://handiresco.com/le-ky-ket-hop-dong-quan-ly-van-hanh-toa-nha-oct3a-n107.html",
+          "publisher": "HANDIRESCO",
+          "authorType": "operator",
+          "publishedAt": "2023-12-30",
+          "effectivePeriod": "2024-01-01–2026-12-31",
+          "timeBasis": "announced-period",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Đoạn lựa chọn và ký hợp đồng",
+          "limitation": "Tự công bố của đơn vị vận hành; chưa kiểm tra sửa đổi hoặc thực hiện hiện tại. Không có biểu phí."
+        },
+        {
+          "id": "oct3a-parking",
+          "topic": "parking",
+          "text": "Trang giới thiệu của HANDIRESCO mô tả ba tầng đế OCT3A có khu để xe và diện tích dịch vụ thương mại.",
+          "scope": "building",
+          "buildingId": "oct3a",
+          "url": "https://www.handiresco.com/toa-oct3a-kdt-handiresco-co-nhue-xuan-dinh-dv42.html",
+          "publisher": "HANDIRESCO",
+          "authorType": "developer/operator",
+          "publishedAt": null,
+          "effectivePeriod": null,
+          "timeBasis": "undated",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Đoạn mô tả khối đế OCT3A",
+          "limitation": "Chưa rõ ngày mô tả, sức chứa hiện tại, chỗ trống và quyền đỗ xe."
+        }
+      ]
+    },
+    {
+      "id": "ttx-ct1",
+      "label": "Thông Tấn Xã – CT1 Kim Văn–Kim Lũ",
+      "buildingIds": [],
+      "notes": [
+        {
+          "id": "ttx-identity",
+          "topic": "identity",
+          "text": "Trang dự án ngày 21/10/2015 của Sông Đà 7 đặt dự án nhà ở cán bộ Thông tấn xã Việt Nam tại ô CT1, KĐT Kim Văn–Kim Lũ, Đại Kim, Hoàng Mai.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://congtycophandautudothivakhucongnghiepsongda7.vn/du-an-nha-o-thong-tan-xa-viet-nam-1-2-16141.html",
+          "publisher": "Sông Đà 7",
+          "authorType": "developer",
+          "publishedAt": "2015-10-21",
+          "effectivePeriod": null,
+          "timeBasis": "historical",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Mục 1–3 dưới ngày đăng",
+          "limitation": "Địa chỉ lịch sử cấp dự án; không xác nhận CT1C, phường hiện tại hoặc đúng căn trong tin."
+        },
+        {
+          "id": "ttx-portfolio",
+          "topic": "completion",
+          "text": "Khi kiểm tra ngày 01/11/2026, danh mục của Sông Đà 7 xếp dự án nhà ở Thông tấn xã Việt Nam trong nhóm dự án đã hoàn thành.",
+          "scope": "project",
+          "buildingId": null,
+          "url": "https://congtycophandautudothivakhucongnghiepsongda7.vn/da-hoan-thanh-2-2-7773.html",
+          "publisher": "Sông Đà 7",
+          "authorType": "developer",
+          "publishedAt": null,
+          "effectivePeriod": null,
+          "timeBasis": "undated",
+          "checkedAt": "2026-11-01T13:00:00Z",
+          "reviewDueAt": "2026-11-08T13:00:00Z",
+          "locator": "Mục Thông tấn xã trong danh mục dự án đã hoàn thành",
+          "limitation": "Không rõ ngày phân loại hoặc hoàn thành. Ngày bài viết 21/10/2015 không phải ngày bàn giao; không chứng nhận một tòa hoặc căn."
+        }
+      ]
+    }
+  ]
+}

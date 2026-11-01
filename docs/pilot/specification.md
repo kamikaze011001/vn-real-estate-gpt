@@ -124,3 +124,8 @@ The user requested pushing the collected real data to the website. The landing p
 ### Additional source-ad acquisition — 1 November 2026
 
 The user requested actual growth beyond fourteen records. The [Alonhadat factual-reference adapter](alonhadat-acquisition.md) extends source research without copying descriptions, contacts or photos. Short project/area names remain source claims. Displayed portal dates are separate from original/genuine-edit evidence; fresh records with missing genuine dates stay unresolved, while stale/expired/proven-old ads enter archive. The existing 72h/30d/7d usable gates and separate permissioned catalogue remain.
+
+
+### Preparation before a viewing — approved 1 November 2026
+
+Add [Chuẩn bị trước khi xem nhà](viewing-brief.md) for one to three selected research ads, using existing conversation must-haves. Show a partial brief immediately: a next action, one sourced finding, the biggest gap, expandable context and at most three seller questions. Initial evidence families are CT36 Định Công, OCT3A HANDIRESCO Cổ Nhuế–Xuân Đỉnh and Thông Tấn Xã CT1. Tentative family associations never justify building-specific notes. Preserve source dates, scope, unknown current fees, hard constraints and server-backed selections. Validate with three five-minute observed tasks; no participant result is assumed.
