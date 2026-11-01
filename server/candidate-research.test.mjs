@@ -56,3 +56,12 @@ test('Alonhadat ads project only scoped numeric facts, an own label and separate
     assert.deepEqual(candidateResearch([{...candidate,source_url:bad}]),[]);
   assert.ok(!JSON.stringify(leads).includes('PRIVATE'));
 });
+
+test('Rongbay references bind publisher path and ad ID while preserving unknown original dates',()=>{
+ const base=row({source_id:'rongbay',source_key:'rongbay:34423215:ad-34423215',source_url:'https://rongbay.com/Ha-Noi/Test-only-c15-raovat-34423215.html'});
+ base.payload={...base.payload,format:'public-ad',post_key:'ad-34423215',source_published_at:null,source_edited_at:null,flags:[],fields:{...base.payload.fields,displayed_date:'2026-11-01'}};
+ const [lead]=candidateResearch([base]);assert.equal(lead.source,'RONGBAY');assert.equal(lead.publishedAt,null);assert.equal(lead.displayedAt,'2026-11-01');
+ assert.deepEqual(candidateResearch([{...base,source_url:base.source_url.replace('Ha-Noi','Ho-Chi-Minh')}]),[]);
+ assert.deepEqual(candidateResearch([{...base,source_key:'rongbay:99999:ad-99999'}]),[]);
+ assert.equal(lead.inventoryEligible,false);assert.equal(lead.priceVnd,null);
+});
