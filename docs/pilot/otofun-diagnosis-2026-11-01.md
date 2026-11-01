@@ -15,7 +15,17 @@ Ranked hypotheses and checks:
 3. **Local DNS/TLS/parser bug.** Ordinary TCP/TLS checks succeeded for OTOFUN (TLS 1.3) and VOZ. No proxy schemes were configured in the local Python environment. Python and curl produced the same HTTP failure; parsing was not reached. A native Brave navigation to the robots URL stalled without producing a completed response and was closed; it is not evidence of successful browser access. Chrome was untouched.
 4. **Only excessive request volume.** A single robots request after the earlier run still failed. This weakens a volume-only explanation but does not establish what rate controls the publisher applies.
 
-The current conclusion is an external HTTP/source-availability obstacle in the tested path, with a separate local worker defect that amplified failures. Changing parsers, increasing request counts or silently treating the failure as an empty market would not address the evidence.
+The initial conclusion was an HTTP/source-availability obstacle in the tested crawler path, with a separate local worker defect that amplified failures. The subsequent normal-client success below narrows that conclusion: OTOFUN is accessible, and the failure depends on the request path/profile or time. It must not be described as a confirmed general source outage. Changing parsers alone cannot repair an HTTP failure.
+
+## Follow-up: ordinary Requests and BeautifulSoup succeeded
+
+After the user reported that normal browsing worked and requested a normal Python crawl, the exact retained [OTOFUN thread](https://www.otofun.net.vn/threads/can-ho-chung-cu-ecopark-onsen.1968309/) loaded in native Brave without signing in. This corrects any implication that only cached content was accessible; the earlier stalled robots navigation did not establish that ordinary thread browsing failed.
+
+An isolated temporary Python environment with Requests 2.34.2 and BeautifulSoup 4.15.0 then made a normal fresh-session request using the library's honest default `python-requests/2.34.2` identity. Robots and the exact thread both returned HTTP 200 in approximately 0.13/0.15 seconds. Robots permitted the request. BeautifulSoup parsed 20 post containers and identified the original opening-post key `post-73122262`. The heading is marked expired, so successful access does not make the ad current inventory. No body, comments, contacts, images or browser cookies were imported into Supabase. The local credential-free result is retained in `artifacts/otofun-requests-bs-probe-2026-11-01.json` (ignored).
+
+A subsequent comparison found the existing urllib client timed out at robots, while Requests configured with the existing custom crawler User-Agent/Accept returned robots HTTP 503. The normal Requests success and custom-profile failure support investigating HTTP client/session/header compatibility, not replacing the HTML parser as an access fix. These requests happened sequentially, so time-varying availability remains a confounder; a particular header or bot filter has not been proven responsible. No browser identity, authentication cookies, proxy, CAPTCHA bypass or TLS-verification bypass was used.
+
+BeautifulSoup is viable for normal returned HTML; it does not issue HTTP requests or resolve a 503. References: [Requests response/status handling](https://requests.readthedocs.io/en/latest/user/quickstart/), [BeautifulSoup HTML parsing](https://www.crummy.com/software/BeautifulSoup/bs4/doc/). The production/scheduled worker has not yet been switched to this alternative client; a controlled fetch-layer change and actual-run verification remain separate from this successful prototype.
 
 ## Worker fix
 
