@@ -18,6 +18,7 @@ try {
   assert.equal(identity.websiteUrl, 'https://vn-real-estate-gpt.vercel.app/');
   const landing = await fetch(new URL('/', base), { headers }).then(r => { assert.equal(r.status, 200); return r.text(); });
   assert.ok(landing.includes('id="cach-dung"'), 'public website must serve the user guide');
+  assert.ok(landing.includes('id="live-cards"'), 'public website must include the collected-source preview');
   const icon = await fetch(new URL(new URL(identity.icons[0].src).pathname, base), { headers });
   assert.equal(icon.status, 200);
   assert.ok(icon.headers.get('content-type').includes('image/png'));
@@ -39,13 +40,20 @@ try {
   assert.ok(ui.contents[0].text.includes('text/html') || ui.contents[0].mimeType.includes('mcp-app'));
   let sources = null;
   if (health.researchLinksEnabled) {
+    const publicFeed = await fetch(new URL('/api/research/leads', base), { headers });
+    assert.equal(publicFeed.status, 200);
+    assert.equal(publicFeed.headers.get('cache-control'), 'no-store');
+    const feed = await publicFeed.json();
+    assert.equal(feed.researchOnly, true);
+    assert.equal(feed.researchSessionId, undefined, 'preview reads must not create sessions');
+    assert.ok(feed.leads.every(lead => lead.inventoryEligible === false && lead.priceVnd === null));
     const research = await call('show_research_explorer'); sources = research.total;
     if (sources >= 2) {
       const selected = research.leads.slice(0, 2).map(x => x.id);
       await call('set_research_selection', { researchSessionId: research.researchSessionId, ids: selected });
       assert.deepEqual((await call('compare_research_leads', { researchSessionId: research.researchSessionId })).leads.map(x => x.id), selected);
     }
-    await client.readResource({ uri: 'ui://hanoi-home/research-v1.html' });
+    await client.readResource({ uri: 'ui://hanoi-home/research-v2.html' });
   }
   console.log(JSON.stringify({ ok: true, origin: base.origin, sessionBackend: health.sessionBackend, sources, selectionComparison: 'passed' }));
 } finally { await client.close(); }

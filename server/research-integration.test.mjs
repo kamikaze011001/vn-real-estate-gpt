@@ -34,7 +34,7 @@ test('HTTP/MCP research keeps safe projection, resource, context and inventory i
   const tools = (await client.listTools()).tools;
   assert.ok(tools.find(tool => tool.name === 'search_research_leads').outputSchema.properties.researchOnly);
   assert.equal(tools.find(tool => tool.name === 'search_research_leads')._meta?.ui?.resourceUri, undefined);
-  assert.equal(tools.find(tool => tool.name === 'show_research_explorer')._meta.ui.resourceUri, 'ui://hanoi-home/research-v1.html');
+  assert.equal(tools.find(tool => tool.name === 'show_research_explorer')._meta.ui.resourceUri, 'ui://hanoi-home/research-v2.html');
   assert.deepEqual(tools.find(tool => tool.name === 'set_research_selection')._meta.ui.visibility, ['app']);
   const call = async (name, args = {}) => { const result = await client.callTool({ name, arguments: args }); if (result.isError) throw new Error(result.content[0].text); return result.structuredContent; };
   assert.equal((await call('search_research_leads', { query: 'my dinh' })).total, 3);
@@ -48,7 +48,7 @@ test('HTTP/MCP research keeps safe projection, resource, context and inventory i
   for (const secret of ['PRIVATE BODY', 'CONTACT SECRET', 'PRIVATE AUTHOR', 'sourceItemId', 'fingerprint']) assert.ok(!JSON.stringify(comparison).includes(secret));
   assert.equal((await call('search_properties')).demo, true);
   await assert.rejects(call('get_property', { id: ids[0] }), /Không tìm thấy/);
-  const resource = await client.readResource({ uri: 'ui://hanoi-home/research-v1.html' });
+  const resource = await client.readResource({ uri: 'ui://hanoi-home/research-v2.html' });
   assert.ok(resource.contents[0].mimeType.includes('mcp-app'));
   assert.ok(resource.contents[0].text.includes('get_research_context'));
   assert.ok(!resource.contents[0].text.includes('PRIVATE BODY'));
