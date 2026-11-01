@@ -6,6 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SupabaseStore } from './supabase-store.mjs';
 import { ResearchLinks, fingerprint } from './research-links.mjs';
+import contextBundle from '../data/viewing-context.json' with { type: 'json' };
 import { researchFixture } from './test-support/research-fixture.mjs';
 
 test('real Supabase + independent Node instances preserve both explorers across cold starts', { skip: process.env.HOSTED_INTEGRATION_TEST !== '1', timeout: 45000 }, async t => {
@@ -51,7 +52,8 @@ test('real Supabase + independent Node instances preserve both explorers across 
   await store.request('rpc/review_candidate_context',{method:'POST',body:{p_id:reviewed.id,p_fingerprint:reviewed.fingerprint,p_project_id:'ct36-metropolitan',p_building_id:null,p_match_level:'tentative-project',p_reviewer:'PRIVATE REVIEWER',p_evidence_ref:'PRIVATE EVIDENCE',p_review_due_at:new Date(Date.now()+86400000).toISOString()}});
   const prepared=await b.call('show_viewing_brief',{researchSessionId:research.researchSessionId,requirements:{maxPriceVnd:4e9,minBedrooms:2}});
   assert.equal(prepared.viewingBrief.items[0].association,'tentative-project');
-  assert.equal(prepared.viewingBrief.items[0].context.length,3);
+  const currentProjectNotes=contextBundle.projects.find(p=>p.id==='ct36-metropolitan').notes.filter(n=>n.scope==='project'&&Date.parse(n.checkedAt)<=Date.now()&&Date.parse(n.reviewDueAt)>Date.now()).length;
+  assert.equal(prepared.viewingBrief.items[0].context.length,currentProjectNotes,'test respects the intentionally expiring source bundle');
   assert.ok(!JSON.stringify(prepared).includes('PRIVATE'));
   await a.client.close();
   clients.delete(a.client); await stop(a.child);
@@ -62,7 +64,9 @@ test('real Supabase + independent Node instances preserve both explorers across 
   assert.deepEqual(briefContext.viewingBrief.items.map(x=>x.leadId),selected);
   assert.deepEqual(briefContext.selectedLeadIds,selected);
   await store.request('sale_candidates?id=eq.'+reviewed.id,{method:'PATCH',body:{fingerprint:'a'.repeat(64)}});
-  assert.equal((await cold.call('get_viewing_brief',{researchSessionId:research.researchSessionId})).viewingBrief.items[0].context.length,0,'context review cannot survive a changed source fingerprint');
+  const afterRevision=(await cold.call('get_viewing_brief',{researchSessionId:research.researchSessionId})).viewingBrief.items[0];
+  assert.equal(afterRevision.context.length,0,'context review cannot survive a changed source fingerprint');
+  assert.equal(afterRevision.association,'unresolved','revision invalidation remains testable after the bundle expires');
   const context = await cold.call('get_explorer_context', { explorerSessionId: explorer.explorerSessionId });
   assert.equal(context.filters.maxPriceVnd, 4e9); assert.deepEqual(context.selectedListingIds, ids);
   const removed = rows.find(row => 'research-'+fingerprint(row.source_key).slice(0,20) === selected[0]);

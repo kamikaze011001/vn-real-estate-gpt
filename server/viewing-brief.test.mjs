@@ -73,7 +73,8 @@ test('brief captures its subjects without replacing comparison selections and su
     assert.equal(result.viewingBrief.items.length,1); assert.deepEqual(r.brief({researchSessionId:sid}).viewingBrief.items.map(x=>x.leadId),[ids[0]],'active brief refinements retain its captured subject'); assert.equal(result.viewingBrief.requirements.maxPriceVnd,4e9);
     assert.ok(briefSchema.safeParse(result.viewingBrief).success);
     r.show({researchSessionId:sid,query:'no-results',view:'list'});
-    assert.deepEqual(r.brief({researchSessionId:sid}).viewingBrief.items.map(x=>x.leadId),ids);
+    assert.deepEqual(r.context(sid).briefLeadIds,[ids[0]]);
+    assert.deepEqual(r.brief({researchSessionId:sid}).viewingBrief.items.map(x=>x.leadId),[ids[0]],'browsing elsewhere does not replace prepared subjects');
     assert.throws(()=>r.showBrief({researchSessionId:sid,ids:['demo-01']}));
     assert.throws(()=>r.showBrief({researchSessionId:sid,ids:[ids[0],ids[0]]}));
     r.showBrief({researchSessionId:sid,ids:[ids[0]],clearRequirements:['maxPriceVnd']});

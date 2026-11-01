@@ -57,7 +57,7 @@ try {
       assert.deepEqual(brief.selectedLeadIds,selected);
       assert.equal((await call('get_viewing_brief',{researchSessionId:research.researchSessionId})).requirements.maxPriceVnd,4e9);
     }
-    await client.readResource({ uri: 'ui://hanoi-home/research-v5.html' });
+    await client.readResource({ uri: 'ui://hanoi-home/research-v6.html' });
   }
   console.log(JSON.stringify({ ok: true, origin: base.origin, sessionBackend: health.sessionBackend, sources, selectionComparison: 'passed' }));
 } finally { await client.close(); }
