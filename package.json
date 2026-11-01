@@ -25,6 +25,7 @@
     "setup:supabase-token": "bash scripts/update-supabase-token.sh",
     "setup:supabase-password": "bash scripts/update-supabase-password.sh",
     "pipeline": "node scripts/data-pipeline.mjs",
+    "pipeline:probe": "python3 scripts/forum_access_probe.py",
     "catalogue:migrate": "node scripts/migrate-catalogue.mjs",
     "package:plugin": "node scripts/package-plugin.mjs"
   },

@@ -87,9 +87,12 @@ CATALOGUE_BACKEND=supabase npm run catalogue -- reviews
 npm run pipeline -- collect               # dry-run plan
 npm run pipeline -- status
 npm run pipeline -- candidates
+npm run pipeline:probe -- --source otofun # read-only, no credentials/shared writes
 ```
 
 The daily workflow uses a bounded Python worker plus Supabase metadata/history/review tables. The current public pilot retains demo inventory and its separately reviewed seven-source projection until qualifying real listings exist.
+
+For source outages and the additional-source shortlist, see the [OTOFUN diagnosis](docs/pilot/otofun-diagnosis-2026-11-01.md) and [Hanoi source expansion research](docs/research/hanoi-source-expansion-2026-11-01.md), and [free-first sources and insight quality](docs/research/hanoi-free-data-and-insights-2026-11-01.md). A source 5xx/network failure stops that publisher for the current run; a fresh worker tries normally later, without changing identity or clearing an access restriction.
 
 ## Vercel, Supabase and CI/CD
 

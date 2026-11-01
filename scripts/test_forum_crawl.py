@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from forum_crawl import Robots, claims, database, parse_feed, parse_thread, public_url, redact, save_item, thread_url, Fetcher, AccessStopped, enrich, parse_marketplace, apartment_title, marketplace
 
@@ -200,6 +200,49 @@ class CrawlTests(unittest.TestCase):
                 for url in ["https://voz.vn/t/a.1/", "https://voz.vn/t/b.2/"]:
                     with self.assertRaises(AccessStopped):
                         fetcher.get(url, html=True)
+                self.assertEqual(request.call_count, 1)
+            db.close()
+
+    def test_service_outage_stops_both_otofun_hosts_for_this_run_and_recovers_next_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db)
+            failure = HTTPError('https://www.otofun.net.vn/robots.txt', 503, 'Unavailable', {}, None)
+            with patch.object(fetcher, 'request', side_effect=failure) as request:
+                for host in ['www.otofun.net.vn', 'www.otofun.net.vn', 'www.otofun.net']:
+                    with self.assertRaises(AccessStopped):
+                        fetcher.get(f'https://{host}/threads/test.1/', html=True)
+                self.assertEqual(request.call_count, 1)
+            recovered = Fetcher(db)
+            with patch.object(recovered, 'request', side_effect=[(b'User-agent: *\nAllow: /', 'text/plain'),
+                                                                 (b'<html>recovered</html>', 'text/html')]) as request:
+                body, _ = recovered.get('https://www.otofun.net.vn/threads/test.1/', html=True)
+                self.assertIn('recovered', body)
+                self.assertEqual(request.call_count, 2)
+            db.close()
+
+    def test_network_timeout_is_classified_and_does_not_retry_policy_for_each_item(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db)
+            with patch.object(fetcher.opener, 'open', side_effect=URLError(TimeoutError())) as request:
+                for number in [1, 2, 3]:
+                    with self.assertRaises(AccessStopped):
+                        fetcher.get(f'https://www.otofun.net.vn/threads/test.{number}/', html=True)
+                self.assertEqual(request.call_count, 1)
+            self.assertEqual(db.execute('SELECT error FROM fetch_log').fetchone()[0], 'network-timeout')
+            db.close()
+
+    def test_service_outage_after_valid_robots_stops_later_post_requests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            fetcher = Fetcher(db)
+            fetcher.robots['https://www.otofun.net.vn'] = Robots('User-agent: *\nAllow: /')
+            failure = HTTPError('https://www.otofun.net.vn/threads/test.1/', 503, 'Unavailable', {}, None)
+            with patch.object(fetcher, 'request', side_effect=failure) as request:
+                for number in [1, 2]:
+                    with self.assertRaises(AccessStopped):
+                        fetcher.get(f'https://www.otofun.net.vn/threads/test.{number}/', html=True)
                 self.assertEqual(request.call_count, 1)
             db.close()
 

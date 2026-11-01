@@ -1,9 +1,13 @@
 """Bounded public-forum collection into a private review inbox. Standard library only."""
 import argparse
+import errno
 import hashlib
+import http.client
 import json
 import re
 import sqlite3
+import socket
+import ssl
 import time
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -112,11 +116,49 @@ class AccessStopped(Exception):
         super().__init__(message)
 
 
+NETWORK_FAILURES = {'network-timeout', 'network-dns', 'network-tls', 'network-reset',
+                    'network-refused', 'network-unreachable', 'network-other'}
+
+
+def network_failure(error):
+    """Classify transport causes without retaining exception messages or URLs."""
+    for _ in range(5):
+        if isinstance(error, (TimeoutError, socket.timeout)) or getattr(error, 'errno', None) == errno.ETIMEDOUT:
+            return 'network-timeout'
+        if isinstance(error, socket.gaierror):
+            return 'network-dns'
+        if isinstance(error, ssl.SSLError):
+            return 'network-tls'
+        if isinstance(error, (ConnectionResetError, http.client.RemoteDisconnected)):
+            return 'network-reset'
+        if getattr(error, 'errno', None) == errno.ECONNREFUSED:
+            return 'network-refused'
+        if getattr(error, 'errno', None) in {errno.ENETUNREACH, errno.EHOSTUNREACH}:
+            return 'network-unreachable'
+        nested = getattr(error, 'reason', None) or error.__cause__
+        if not isinstance(nested, BaseException) or nested is error:
+            break
+        error = nested
+    return 'network-other'
+
+
+def publisher(host):
+    return 'voz' if host == 'voz.vn' else 'otofun' if host in {'www.otofun.net.vn', 'www.otofun.net'} else None
+
+
+def source_stopped(fetcher, source):
+    return (source in getattr(fetcher, 'unavailable', {})
+            or any(publisher(host) == source for host in fetcher.blocked))
+
+
 class Fetcher:
     def __init__(self, db, delay=2):
         self.db, self.delay = db, delay
         self.opener = build_opener(NoRedirect())
         self.robots, self.last_request, self.blocked = {}, {}, set()
+        # Transient outages stop this publisher for this run, including its aliases.
+        # A fresh worker retries normally; no access restriction is cleared here.
+        self.unavailable = {}
 
     def request(self, url, limit=2_000_000):
         host = urlsplit(url).hostname
@@ -135,7 +177,9 @@ class Fetcher:
             self.log(url, error.code, "HTTP response")
             raise
         except (OSError, TimeoutError) as error:
-            self.log(url, 0, type(error).__name__)
+            kind = network_failure(error)
+            self.log(url, 0, kind)
+            self.unavailable[publisher(host)] = {'status': 0, 'reason': kind}
             raise AccessStopped(0, "Network request failed") from error
 
     def log(self, url, status, error):
@@ -146,9 +190,12 @@ class Fetcher:
         url = public_url(url)
         for _ in range(4):
             parts = urlsplit(url)
+            source = publisher(parts.hostname)
             origin = f"https://{parts.hostname}"
-            if parts.hostname in self.blocked:
+            if any(publisher(host) == source for host in self.blocked):
                 raise AccessStopped(403, "Host stopped after an access/rate-limit response")
+            if source in self.unavailable:
+                raise AccessStopped(self.unavailable[source]['status'], "Source temporarily unavailable; wait for a later run")
             if origin not in self.robots:
                 try:
                     body, _ = self.request(origin + "/robots.txt", 512_000)
@@ -159,6 +206,8 @@ class Fetcher:
                     else:
                         if error.code in (401, 403, 429):
                             self.blocked.add(parts.hostname)
+                        elif 500 <= error.code <= 599:
+                            self.unavailable[source] = {'status': error.code, 'reason': f'http-{error.code}'}
                         raise AccessStopped(error.code, "Cannot establish robots policy") from error
             allowed, delay = self.robots[origin].policy(url)
             if not allowed:
@@ -175,6 +224,8 @@ class Fetcher:
                     continue
                 if error.code in (401, 403, 429):
                     self.blocked.add(parts.hostname)
+                elif 500 <= error.code <= 599:
+                    self.unavailable[source] = {'status': error.code, 'reason': f'http-{error.code}'}
                 raise AccessStopped(error.code, f"HTTP {error.code}; no bypass or automatic retry") from error
             text = body.decode("utf-8", "replace")
             if html and ("html" not in content_type or re.search(r"<title[^>]*>\s*(?:Just a moment|Access denied|Attention Required)", text, re.I)):
@@ -450,6 +501,8 @@ def crawl(db, selected, max_threads, max_posts, delay, keywords, fetcher=None):
     for feed in feeds:
         if feed["sourceId"] not in selected or not feed.get("collectionEnabled"):
             continue
+        if source_stopped(fetcher, feed['sourceId']):
+            continue
         try:
             xml, _ = fetcher.get(feed["feedUrl"])
             for item in parse_feed(xml):
@@ -471,6 +524,8 @@ def crawl(db, selected, max_threads, max_posts, delay, keywords, fetcher=None):
             threads.append(queue.pop(identity, {"url": item["url"], "title": item["title"], "source": item["sourceId"], "role": "project-community-discovery", "feed_activity_at": None}))
     threads.extend(queue.values())
     for item in threads[:max_threads]:
+        if source_stopped(fetcher, item['source']):
+            continue
         try:
             html, final = fetcher.get(item["url"], html=True)
             parsed = parse_thread(html, final, max_posts)
@@ -576,6 +631,8 @@ def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
             errors.append({"url": url, "error": str(error)})
             break
     for item in list(threads.values())[:max_threads]:
+        if source_stopped(fetcher, 'otofun'):
+            break
         try:
             html, final = fetcher.get(item["url"], html=True)
             if thread_url(final) != item["url"]:
