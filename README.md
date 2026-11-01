@@ -79,6 +79,8 @@ The research integration has passed local UI, public MCP and actual ChatGPT chec
 
 ## Daily Hanoi data pipeline
 
+The landing page previews real collected source links, and `/research` reads the latest minimal candidate projections directly from Supabase. A successful daily run updates these views without a manual snapshot sync. Source links remain unverified; `/demo` still contains fictional apartments.
+
 The shared catalogue and private daily candidate inbox are documented in [daily data operations](docs/pilot/daily-data-operations.md). Collection covers Hanoi across budgets; each buyer's filters apply at search time. New/changed ads require review and never become confirmed inventory automatically.
 
 Install the pinned Python dependencies once in an ignored project environment:

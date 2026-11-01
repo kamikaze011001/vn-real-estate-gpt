@@ -9,7 +9,7 @@ export const researchNotice = 'Nguồn tham khảo từ tin rao chưa xác minh;
 const time = z.string().max(40).refine(value => Number.isFinite(Date.parse(value)));
 const raw = z.string().trim().min(1).max(80);
 const price = z.object({ raw, basis: z.enum(['unspecified', 'per_m2', 'per_month']), uncertain: z.boolean() }).strict();
-const risks = z.enum(['price-unresolved', 'area-unit-unresolved', 'rate-not-total', 'tenancy-unresolved', 'project-identity-unresolved', 'expired-ad', 'room-layout-uncertain', 'area-discrepancy']);
+const risks = z.enum(['price-unresolved', 'area-unit-unresolved', 'rate-not-total', 'tenancy-unresolved', 'project-identity-unresolved', 'expired-ad', 'room-layout-uncertain', 'area-discrepancy', 'quantity-context-unresolved', 'location-unresolved']);
 export const researchManifestSchema = z.object({
   version: z.literal(1), scope: z.literal('research-source-links'), curatedAt: time, expiresAt: time,
   entries: z.array(z.object({
@@ -48,7 +48,7 @@ const sourceDate = value => {
   const date = value.slice(0, 10), parsed = new Date(`${date}T00:00:00Z`);
   return Number.isFinite(+parsed) && parsed.toISOString().slice(0, 10) === date && date <= new Date().toISOString().slice(0, 10) ? date : null;
 };
-function safeSource(url, sourceItemId) {
+export function safeSource(url, sourceItemId) {
   const [source, thread, post] = sourceItemId.split(':');
   const parsed = new URL(url);
   const hosts = source === 'voz' ? ['voz.vn'] : ['www.otofun.net.vn', 'www.otofun.net'];

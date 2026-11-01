@@ -36,7 +36,7 @@ Users may bypass optional questions and move among search, map, details, and com
 
 The user requested integration of the collected leads. An optional, explicitly labeled research view now supports browsing source links, inspecting dates and uncertain quantity expressions, selecting two or three sources, and asking ChatGPT what to verify. This is separate from the approved-inventory journey: these ads have not been confirmed available, completed, legally documented or suitable for the user's hard requirements. Preserve those requirements in conversation; never count an unknown as a match or convert a price rate into a confirmed total price.
 
-The initial projection contains seven manually curated OTOFUN links with our own labels and minimal factual metadata. It excludes post bodies, images, contacts, author replies and operator notes. It grants no supplier/publication permission, creates no approved catalogue listing and produces no market-price statistic. Changed, removed or expired retained records leave the projection until reviewed again. No source coordinates are verified, so research uses a list rather than map pins. See [operating and verification details](chatgpt-research-integration.md). The existing demo/approved-inventory workflow and selection sessions remain independent.
+The initial projection contains seven manually curated OTOFUN links with our own labels and minimal factual metadata. It excludes post bodies, images, contacts, author replies and operator notes. It grants no supplier/publication permission, creates no approved catalogue listing and produces no market-price statistic. The original curated local batch omits changed, removed or expired retained records until reviewed again. The hosted daily source-link projection below uses current extracted metadata with explicit uncertainty instead. No source coordinates are verified, so research uses a list rather than map pins. See [operating and verification details](chatgpt-research-integration.md). The existing demo/approved-inventory workflow and selection sessions remain independent.
 
 ## Map and comparison behavior
 
@@ -112,3 +112,8 @@ Framework, hosting, map provider, operating budget, persistent-save behavior, an
 3. Fill the [supplier inquiry](supplier-inquiry.md) for selected recipients; contacting them requires a separate instruction.
 4. Agree display permission, update responsibility, location precision, and withdrawal handling; collect the initial inventory.
 5. Replace demo fixtures with permissioned inventory and repeat affected checks and participant tasks.
+
+
+### Live source-link page integration — 1 November 2026
+
+The user requested pushing the collected real data to the website. The landing preview and `/research`, alongside the existing ChatGPT research tools, now read minimal projections of the latest daily Supabase candidates. This is permission to display the source-link research view, not a supplier confirmation or approved property publication. Source identity, dates, uncertainty, retention and revision-bound rejection are enforced server-side. Historical curated names remain labels only. The numeric expressions are not paired into a canonical apartment, not used for hard-requirement matching, and never used to fabricate coordinates. See [daily serving operations](daily-data-operations.md#live-source-link-serving).

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { leadSchema } from './research-links.mjs';
+import { candidateResearch } from './candidate-research.mjs';
 
 const namespace = z.enum(['explorer', 'research']);
 const uuid = z.string().uuid();
@@ -20,7 +21,8 @@ export class SupabaseStore {
     try {
       const response = await this.fetcher(`${this.origin}/rest/v1/${path}`, { method, headers, redirect: 'error', ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(5000) });
       if (!response.ok) throw failure();
-      return response.status === 204 ? null : await response.json();
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
     } catch { throw failure(); }
   }
   async load(kind, id) {
@@ -36,11 +38,17 @@ export class SupabaseStore {
     } });
   }
   async researchRecords() {
-    const query = new URLSearchParams({ expires_at: `gt.${new Date().toISOString()}`, select: 'payload', order: 'position.asc', limit: '50' });
-    const rows = await this.request(`research_sources?${query}`);
-    const leads = rows.map(row => leadSchema.parse(row.payload));
-    // Recheck the payload lease too, even if a table expiry was set incorrectly.
-    return leads.filter(lead => Date.parse(lead.expiresAt) > Date.now());
+    const clock = Date.now(), current = `gt.${new Date(clock).toISOString()}`;
+    const [rows, names] = await Promise.all([
+      this.request(`sale_candidates?${new URLSearchParams({ expires_at:current, select:'id,source_id,source_key,source_url,fingerprint,payload,checked_at,expires_at', order:'checked_at.desc,id.asc', limit:'100' })}`),
+      this.request(`research_sources?${new URLSearchParams({ expires_at:current, select:'payload', limit:'50' })}`),
+    ]);
+    const ids = rows.map(row => row.id).filter(id => /^candidate-[a-f0-9]{24}$/.test(id));
+    const reviews = ids.length ? await this.request(`candidate_reviews?${new URLSearchParams({ select:'candidate_id,fingerprint,decision', decision:'eq.reject', candidate_id:`in.(${ids.join(',')})` })}`) : [];
+    const curated = names.flatMap(row => { const result = leadSchema.safeParse(row.payload); return result.success && Date.parse(result.data.expiresAt)>clock ? [result.data] : []; });
+    // No static/demo fallback: the live inbox alone controls current membership and dates.
+    return candidateResearch(rows, curated, reviews, clock).sort((a,b) =>
+      Number(a.sourceStatus === 'source-expired') - Number(b.sourceStatus === 'source-expired') || Date.parse(b.collectedAt)-Date.parse(a.collectedAt));
   }
   async replaceResearch(leads) {
     const safe = z.array(leadSchema).max(50).parse(leads);

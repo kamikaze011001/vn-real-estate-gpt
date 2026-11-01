@@ -8,8 +8,10 @@ document.documentElement.dataset.hosted = String(hosted);
 const state = { data: null, ids: [], focused: null, view: 'list', synced: false, writing: 0, sending: false, queryNumber: 0 };
 let bridge, connected = false, host = {}, writes = Promise.resolve(), writeVersion = 0;
 const date = value => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Chưa rõ';
-const localDate = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value));
+const localDate = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 const riskNames = {
+  'quantity-context-unresolved': 'Các con số có thể thuộc nhiều căn, tiện ích hoặc phương án sửa; chưa xác định con số nào mô tả đúng căn.',
+  'location-unresolved': 'Chưa xác nhận vị trí thuộc phạm vi Hà Nội; tin có thể nhắc nhiều khu vực.',
   'price-unresolved': 'Tổng giá hoặc cách ghi giá cần được xác nhận.', 'area-unit-unresolved': 'Đơn vị/cách tính diện tích chưa rõ.',
   'rate-not-total': 'Giá trên m² không phải tổng giá chào.', 'tenancy-unresolved': 'Cần làm rõ tình trạng thuê và điều kiện bàn giao.',
   'project-identity-unresolved': 'Chưa đối chiếu đúng dự án, tòa và căn.', 'expired-ad': 'Nguồn đánh dấu tin hết hạn; cần hỏi lại, chưa thể kết luận đã bán.',
@@ -73,6 +75,8 @@ function render() {
   if (!state.data) return;
   const focusedKey = document.activeElement?.dataset.selectKey;
   $('status').textContent = state.writing ? 'Đang đồng bộ lựa chọn…' : `${state.data.total} nguồn · chưa xác minh${connected && state.ids.length && state.synced ? ' · ChatGPT đã nhận lựa chọn' : ''}`;
+  const latest = state.data.leads.map(lead => lead.collectedAt).sort().at(-1);
+  $('freshness').textContent = latest ? `Lần đọc nguồn gần nhất: ${localDate(latest)} (giờ Việt Nam). Đọc lại không có nghĩa là đã xác nhận còn bán.` : '';
   $('selection').hidden = state.ids.length === 0;
   $('selected-label').textContent = `Đã chọn ${state.ids.length} nguồn · tối đa 3`;
   $('selected-names').textContent = state.ids.map(getLead).filter(Boolean).map(lead => lead.label).join(' · ');
@@ -84,7 +88,7 @@ function render() {
     const actions = node('div', undefined, 'card-actions'), select = button(state.ids.includes(lead.id) ? 'Đã chọn' : 'Chọn so sánh', () => toggle(lead.id));
     select.dataset.selectKey = lead.id; select.setAttribute('aria-label', `Chọn so sánh ${lead.label}`); select.setAttribute('aria-pressed', String(state.ids.includes(lead.id))); select.disabled = state.sending || (!state.ids.includes(lead.id) && state.ids.length >= 3);
     actions.append(button('Xem nguồn', () => detail(lead.id), 'primary'), select);
-    card.append(top, node('h3', lead.label), facts(lead), node('p', 'Còn bán, giấy tờ và đáp ứng yêu cầu: chưa xác nhận.', 'note'), actions); $('cards').append(card);
+    card.append(top, node('h3', lead.label), facts(lead), node('p', 'Còn bán, giấy tờ và đáp ứng yêu cầu: chưa xác nhận.', 'note'), node('p', `Đọc nguồn: ${localDate(lead.collectedAt)}`, 'note'), actions); $('cards').append(card);
   }
   $('empty').hidden = state.data.total > 0;
   $('list-panel').hidden = state.view !== 'list'; $('detail-panel').hidden = state.view !== 'details'; $('comparison-panel').hidden = state.view !== 'comparison';
@@ -135,4 +139,12 @@ if (hosted) {
   bridge.onhostcontextchanged = hostContext;
   bridge.connect().then(() => { connected = true; hostContext(bridge.getHostContext()); render(); if (state.data) void sync(); }).catch(() => error('Chưa kết nối được với ChatGPT. Hãy mở lại nguồn tham khảo.'));
   setInterval(async () => { if (!connected || !state.data || state.writing || state.sending || host.displayMode !== 'fullscreen' || document.visibilityState !== 'visible' || document.activeElement?.matches('input,select')) return; try { const data = await tool('get_research_context', { researchSessionId: state.data.researchSessionId }); if (data.revision !== state.data.revision) receive(data); } catch (failure) { error(failure.message); } }, 8000);
-} else { const dark = matchMedia('(prefers-color-scheme: dark)').matches; applyDocumentTheme(dark ? 'dark' : 'light'); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; void search(); }
+} else {
+  $('website-nav').hidden = false;
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  applyDocumentTheme(dark ? 'dark' : 'light'); document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  void search().then(async () => {
+    const id = new URLSearchParams(location.search).get('source');
+    if (id && getLead(id)) await detail(id);
+  });
+}
