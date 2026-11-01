@@ -34,3 +34,10 @@ Extend the existing interactive-decoupled app: ALONHADAT becomes an additional r
 Design references: OpenAI's [structured results/resources](https://developers.openai.com/plugins/build/mcp-server), [MCP Apps bridge and resource cache](https://developers.openai.com/plugins/build/chatgpt-ui), [tool responsibilities](https://developers.openai.com/plugins/plan/tools), and [result schema reference](https://developers.openai.com/plugins/reference).
 
 Invented fixtures cover scoped quantities, units, unknown dates, identities, renamed URLs, pending discovery, refresh-only mode and outages. SQL covers activation, URLs and atomic candidate/frontier persistence. Actual local Supabase/MCP tests cover mixed-source comparison; synthetic HTTP/RPC saves parsed Alonhadat data beside a failed forum. Production access, public growth and actual ChatGPT results belong separately in [the connection record](chatgpt-connection.md).
+
+
+## Actual worker access finding
+
+The first GitHub import on 1 November received robots 200 then category 429 from Alonhadat; it stopped and retained the existing 24-hour blocked-source cooldown. Local Requests access was insufficient to establish worker readiness. Three pre-existing successful local observations were imported separately without new source requests, using their original probe-batch completion time and expiry; the worker block was preserved. This supplies attributable research references, not a reliable daily Alonhadat feed. [Read-only listing-source preflight](../../.github/workflows/listing-source-preflight.yml) tests the researched Rongbay fallback from GitHub without database credentials/imports before any further adapter is activated.
+
+A follow-up regression ensures every new detail opening consumes quota even when parsing fails. Failed parsing remains pending, but cannot cause extra source requests beyond the configured cap.
