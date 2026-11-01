@@ -652,7 +652,7 @@ def enrich(db, item_ids, delay=2):
     return result
 
 
-def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
+def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None, discovery=None, known_urls=()):
     """Bounded apartment-title discovery from the configured OTOFUN marketplace."""
     if not 1 <= pages <= 5 or not 1 <= max_threads <= 20:
         raise ValueError("marketplace supports 1–5 index pages and 1–20 opening posts")
@@ -664,10 +664,28 @@ def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
     if not re.fullmatch(r"/forums/cho-bat-dong-san\.423/", urlsplit(base).path):
         raise ValueError("Unexpected marketplace index route")
     fetcher, threads, errors, resolved, changed = fetcher or Fetcher(db, delay), {}, [], [], 0
-    discovered, pages_read = 0, 0
+    discovered, pages_read, attempted = 0, 0, 0
+    persistent = discovery is not None or bool(known_urls)
+    discovery = discovery or {}
+    cursor = discovery.get('next_page', 2)
+    if not isinstance(cursor, int) or not 2 <= cursor <= 100:
+        raise ValueError('Invalid discovery cursor')
+    excluded = {thread_identity(thread_url(url)) for url in known_urls}
+    for row in discovery.get('threads', []):
+        url = thread_url(row['source_url'])
+        identity = thread_identity(url)
+        if identity[0] != 'otofun':
+            raise ValueError('Invalid discovery publisher')
+        if row.get('due') is True and identity not in excluded:
+            threads.setdefault(identity, {'url': url, 'title': ''})
+        elif not row.get('due'):
+            excluded.add(identity)
+    page_numbers = [1] + list(range(cursor, min(101, cursor + pages - 1))) if persistent else list(range(1, pages + 1))
+    indexed, successful = [], []
+    next_page = cursor
     run_id = db.execute("INSERT INTO crawl_run(started_at) VALUES(?)", (now(),)).lastrowid
     db.commit()
-    for page in range(1, pages + 1):
+    for page in page_numbers:
         url = base if page == 1 else base + f"page-{page}"
         try:
             html, final = fetcher.get(url, html=True)
@@ -678,14 +696,24 @@ def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
             discovered += len(found)
             for item in found:
                 if apartment_title(item["title"]):
-                    threads.setdefault(thread_identity(item["url"]), item)
+                    indexed.append(item['url'])
+                    identity = thread_identity(item['url'])
+                    if identity not in excluded:
+                        threads.setdefault(identity, item)
+            if persistent and page > 1:
+                next_page = 2 if not found or page == 100 else page + 1
+                if not found:
+                    break
         except (AccessStopped, ValueError) as error:
+            if persistent and page > 1 and getattr(error, 'status', None) == 404:
+                next_page = 2
             errors.append({"url": url, "error": str(error)})
             break
     for item in list(threads.values())[:max_threads]:
         if source_stopped(fetcher, 'otofun'):
             break
         try:
+            attempted += 1
             html, final = fetcher.get(item["url"], html=True)
             if thread_url(final) != item["url"]:
                 raise ValueError("Opening post redirected away from requested thread")
@@ -700,12 +728,16 @@ def marketplace(db, pages=3, max_threads=12, delay=2, fetcher=None):
             if db.execute("SELECT id FROM item WHERE id=?", (rss_id,)).fetchone():
                 db.execute("INSERT INTO forum_enrichment VALUES(?,?,?) ON CONFLICT(source_item_id) DO UPDATE SET target_item_id=excluded.target_item_id,checked_at=excluded.checked_at", (rss_id, ident, now()))
                 db.commit()
+            successful.append(item['url'])
             resolved.append({"id": ident, "title": parsed["title"] or item["title"], "source_url": post["source_url"], "posted_at": post["posted_at"]})
         except (AccessStopped, ValueError) as error:
+            if getattr(error, 'status', None) in (404, 410):
+                successful.append(item['url'])  # Recheck later; do not call an absent page sold.
             errors.append({"url": item["url"], "error": str(error)})
     result = {"kind": "marketplace", "outcome": "completed" if not errors else "partial" if resolved else "failed",
               "index_pages_read": pages_read, "thread_titles_observed": discovered, "apartment_title_candidates": len(threads),
-              "opening_posts_attempted": min(len(threads), max_threads), "records_observed": len(resolved), "new_observations": changed,
+              "opening_posts_attempted": attempted, "records_observed": len(resolved), "new_observations": changed,
+              "discovery_state": {'source_id': 'otofun', 'next_page': next_page, 'indexed': list(dict.fromkeys(indexed)), 'attempted': successful} if persistent else None,
               "stored_items": db.execute("SELECT count(*) FROM item").fetchone()[0], "resolved": resolved, "errors": errors,
               "published_listings": 0, "published_evidence": 0}
     db.execute("UPDATE crawl_run SET completed_at=?,summary=? WHERE id=?", (now(), json.dumps(result, ensure_ascii=False), run_id))

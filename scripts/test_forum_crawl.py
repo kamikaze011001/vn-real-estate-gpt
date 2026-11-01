@@ -51,6 +51,44 @@ class CrawlTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 marketplace(db, pages=6)
             db.close()
+    def test_discovery_resumes_backfill_and_keeps_unfetched_pending_posts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = database(Path(directory) / 'crawl.sqlite')
+            known = 'https://www.otofun.net.vn/threads/known.42/'
+            pending = 'https://www.otofun.net.vn/threads/pending.43/'
+            new = 'https://www.otofun.net.vn/threads/new.44/'
+            index = "<div class='structItem-title'><a href='/threads/known.42/'>Căn hộ Hà Nội</a></div><div class='structItem-title'><a href='/threads/new.44/'>Căn hộ Hà Nội</a></div>"
+            opening = "<h1 class='p-title-value'>Cần bán căn hộ Hà Nội</h1><article data-content='post-1'><div class='bbWrapper'>Cần bán căn hộ Hà Nội 72m2 giá 4 tỷ.</div></article>"
+            def get(url, **_kwargs):
+                return (index if '/forums/' in url else opening, url)
+            state = {'next_page':4,'threads':[{'source_url':pending,'due':True},{'source_url':known,'due':False}]}
+            with patch.object(Fetcher, 'get', side_effect=get) as request:
+                result = marketplace(db,pages=3,max_threads=1,discovery=state,known_urls=[known])
+            urls = [call.args[0] for call in request.call_args_list]
+            self.assertIn('https://www.otofun.net.vn/forums/cho-bat-dong-san.423/page-4',urls)
+            self.assertIn('https://www.otofun.net.vn/forums/cho-bat-dong-san.423/page-5',urls)
+            self.assertNotIn('https://www.otofun.net.vn/forums/cho-bat-dong-san.423/page-2',urls)
+            self.assertEqual(result['resolved'][0]['id'],'otofun:43:post-1')
+            self.assertEqual(result['discovery_state']['next_page'],6)
+            self.assertIn(new,result['discovery_state']['indexed'])
+            self.assertEqual(result['discovery_state']['attempted'],[pending])
+            self.assertNotIn(known,urls)
+            db.close()
+
+    def test_failed_index_keeps_the_cursor_and_does_not_mark_pending_as_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db=database(Path(directory)/'crawl.sqlite')
+            fetcher=Fetcher(db,0)
+            def unavailable(url, **_kwargs):
+                fetcher.unavailable['otofun']={'status':503}
+                raise AccessStopped(503,'HTTP 503')
+            with patch.object(fetcher,'get',side_effect=unavailable):
+                result=marketplace(db,pages=3,max_threads=1,fetcher=fetcher,discovery={'next_page':8,'threads':[]})
+            self.assertEqual(result['discovery_state']['next_page'],8)
+            self.assertEqual(result['discovery_state']['attempted'],[])
+            self.assertEqual(result['opening_posts_attempted'],0)
+            fetcher.close(); db.close()
+
     def test_enrichment_fetches_only_the_opening_post_and_links_the_excerpt(self):
         with tempfile.TemporaryDirectory() as directory:
             db = database(Path(directory) / "crawl.sqlite")

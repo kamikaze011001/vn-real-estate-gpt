@@ -96,13 +96,14 @@ The npm crawler commands use that environment when present, otherwise `python3` 
 npm run catalogue:migrate                  # one-time reviewed-catalogue migration plan
 CATALOGUE_BACKEND=supabase npm run catalogue -- reviews
 npm run pipeline -- collect               # dry-run plan
+npm run pipeline -- collect --apply --pages 5 --threads 20 # bounded backfill
 npm run pipeline -- status
 npm run pipeline -- candidates
 npm run pipeline:probe -- --source otofun # read-only, no credentials/shared writes
 npm run pipeline:probe -- --source otofun --thread https://www.otofun.net.vn/threads/can-ho-chung-cu-ecopark-onsen.1968309/
 ```
 
-The daily workflow uses a bounded Python worker plus Supabase metadata/history/review tables. The current public pilot retains demo inventory and its separately reviewed seven-source projection until qualifying real listings exist.
+The daily workflow uses a bounded Python worker plus Supabase metadata/history/review tables. OTOFUN discovery resumes saved backfill progress and pending links; up to four oldest candidates per source refresh separately from the new-opening quota. Manual runs can choose five index pages and twenty new openings; scheduled runs keep three/twelve defaults. The current public pilot retains demo inventory and its separately reviewed seven-source projection until qualifying real listings exist.
 
 For source outages and the additional-source shortlist, see the [OTOFUN diagnosis](docs/pilot/otofun-diagnosis-2026-11-01.md) and [Hanoi source expansion research](docs/research/hanoi-source-expansion-2026-11-01.md), and [free-first sources and insight quality](docs/research/hanoi-free-data-and-insights-2026-11-01.md). Each source has an isolated worker boundary and a two-minute runtime limit. Failures persist a backoff in Supabase (15 minutes doubling to 24 hours, at least 24 hours for access blocks, or longer when requested by `Retry-After`). Other enabled sources continue and their candidate metadata is saved. Partial runs and all-source cooldown deferrals exit successfully with CI warnings; total failure remains nonzero. Recovery is attempted on the first run after the deadline, without changing identity or clearing an access restriction. See [daily operations](docs/pilot/daily-data-operations.md#daily-collection) for outcome and status semantics.
 
