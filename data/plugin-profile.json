@@ -1,0 +1,14 @@
+{
+  "name": "Nhà Hà Nội",
+  "subtitle": "Đối chiếu nguồn tin căn hộ",
+  "description": "Xem nguồn tin rao căn hộ Hà Nội có link gốc và ngày nguồn. Chọn 2–3 nguồn, rồi nhắn “So sánh các nguồn tôi vừa chọn” hoặc hỏi điều cần xác minh. Có trải nghiệm bản đồ và bộ lọc bằng căn mô phỏng. Nguồn tin chưa xác minh còn bán; hiện chưa có căn thực tế được duyệt. Hướng dẫn: https://vn-real-estate-gpt.vercel.app/",
+  "website": "https://vn-real-estate-gpt.vercel.app/",
+  "icon": "site/assets/icon-512.png",
+  "starterPrompts": [
+    "Mở các nguồn tin rao căn hộ ở Hà Nội. Giữ rõ thông tin chưa xác minh.",
+    "Mở căn hộ mô phỏng ở Hà Nội, tối đa 4 tỷ, từ 2 phòng ngủ và hiển thị bản đồ.",
+    "So sánh hai nguồn tôi vừa chọn. Dẫn link gốc và nêu những gì cần xác minh."
+  ],
+  "sourceIcon": "site/assets/icon.svg",
+  "longDescription": "Tìm hiểu căn hộ Hà Nội ngay trong ChatGPT: xem nguồn tin rao có link gốc và ngày nguồn, chọn hai hoặc ba nguồn để đối chiếu, rồi hỏi những điều cần xác minh.\n\nCách bắt đầu: mở app và nhắn “Mở các nguồn tin rao căn hộ ở Hà Nội”. Chọn nguồn trong giao diện, chờ “ChatGPT đã nhận lựa chọn”, rồi hỏi “So sánh hai nguồn tôi vừa chọn”.\n\nBạn cũng có thể thử tìm theo ngân sách, số phòng ngủ, xem bản đồ và so sánh trong phần căn mô phỏng. Hiện chưa có nguồn căn thực tế được duyệt; tin rao tham khảo chưa xác minh giá, còn bán, pháp lý hay bàn giao. Bản đồ và bộ lọc yêu cầu đang dùng dữ liệu mô phỏng.\n\nHướng dẫn và thông tin dữ liệu: https://vn-real-estate-gpt.vercel.app/#cach-dung"
+}

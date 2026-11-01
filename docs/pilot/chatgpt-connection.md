@@ -206,6 +206,12 @@ The approved dataset strategy now covers Hanoi areas and budgets, with buyer-spe
 
 Local validation adds a catalogue snapshot round-trip, minimal candidate-projection/access-stop tests, database permission/lease/CAS checks and an actual local Supabase real-mode regression with two independent MCP instances. The real-mode fixtures stay in the isolated local stack. Cloud deployment and daily worker outcomes are recorded by the [deployment workflow](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/workflows/ci.yml) and [daily workflow](https://github.com/kamikaze011001/vn-real-estate-gpt/actions/workflows/data-enrichment.yml); scheduled fetches do not confirm availability or source reuse rights.
 
+### Brand and onboarding update (1 November 2026)
+
+[Branding and user guidance](plugin-branding.md) adds an original terracotta apartment/conversation icon and a Vietnamese landing page at the canonical website. The standalone explorer moves to `/demo`; embedded resources and source/property selection flows retain their existing IDs. MCP identity now supplies `title`, `description`, `websiteUrl` and a square PNG icon. These fields need an app refresh; their protocol availability is separate from whether ChatGPT displays them. Current source links remain unverified and inventory remains fictional.
+
+The landing page includes three copyable prompts, the select-then-compare journey, source-versus-demo labels and FAQ. The metadata source is `data/plugin-profile.json`. Local HTTP/MCP and production smoke checks cover the landing page, demo route and icon packaging. Hosted metadata display and a fresh conversational regression must be checked separately in Brave after deployment.
+
 ### Earlier demo verification limits
 
 A separate [private lead-review preview](private-lead-preview.md) is available only on `http://127.0.0.1:8790`. It renders retained unverified forum ads for local operator inspection and has no `/mcp`, publication actions or tunnel. This is not a second ChatGPT connection and does not change this connection's demo inventory, v12 resource or selection mechanism. Its local browser and regression results are recorded separately; they do not establish a real-inventory ChatGPT-host pilot.

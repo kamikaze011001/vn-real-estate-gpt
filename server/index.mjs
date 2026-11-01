@@ -13,6 +13,7 @@ import { inventoryMode, propertyEvidence } from './inventory-repository.mjs';
 import { evidenceOutputShape } from './project-evidence.mjs';
 import { newExplorerSession, readSelection, writeSelection, resolveFilters } from './selections.mjs';
 import { ResearchLinks, researchFilters, researchGuidance, researchOutputShape } from './research-links.mjs';
+import pluginProfile from '../data/plugin-profile.json' with { type: 'json' };
 
 const app = express();
 const sessionBackend = process.env.SESSION_BACKEND || 'memory';
@@ -27,6 +28,7 @@ const resourceUri = 'ui://hanoi-home/explorer-v12.html';
 const researchEnabled = process.env.RESEARCH_LINKS_ENABLED === '1';
 const researchUri = 'ui://hanoi-home/research-v1.html';
 const researchHtml = fileURLToPath(new URL('../dist-research/index.html', import.meta.url));
+const sitePath = fileURLToPath(new URL('../site/', import.meta.url));
 const research = researchEnabled ? new ResearchLinks({ dbPath: process.env.RESEARCH_DB || 'private-data/forum-crawl.sqlite', manifestPath: process.env.RESEARCH_LINKS_MANIFEST || 'private-data/research-links.json' }) : null;
 const researchSession = { researchSessionId: z.string().uuid() };
 const researchShow = { ...researchFilters, researchSessionId: z.string().uuid().optional(), selectedLeadIds: z.array(z.string()).max(3).optional(), focusedLeadId: z.string().nullable().optional(), view: z.enum(['list', 'details', 'comparison']).optional() };
@@ -93,7 +95,11 @@ const addDataTool = (server, name, config, handler) => server.registerTool(name,
 const addUiTool = (server, name, config, handler) => registerAppTool(server, name, config, toolHandler(name, handler));
 
 function createMcpServer() {
-  const server = new McpServer({ name: `hanoi-home-${inventoryMode}`, version: '0.1.0' });
+  const server = new McpServer({
+    name: `hanoi-home-${inventoryMode}`, title: pluginProfile.name, version: '0.1.0',
+    description: pluginProfile.description, websiteUrl: pluginProfile.website,
+    icons: [{ src: new URL('/assets/icon-512.png', pluginProfile.website).href, mimeType: 'image/png', sizes: ['512x512'] }],
+  }, { instructions: `${inventoryGuidance} For help getting started, explain browsing sources, selecting two or three items and asking about those selections without typing IDs. User guide: ${pluginProfile.website}#cach-dung. Research links and property inventory are separate workflows.` });
   if (research) {
     registerAppResource(server, 'research-links', researchUri, {}, async () => ({ contents: [{ uri: researchUri, mimeType: RESOURCE_MIME_TYPE, text: await readFile(researchHtml, 'utf8'), _meta: {
       ui: { prefersBorder: true, csp: { resourceDomains: [], connectDomains: [] } },
@@ -210,7 +216,9 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '64kb' }));
 app.get('/health', (_req, res) => res.json({ ok: true, mode: inventoryMode, version: '0.1.0', researchLinksEnabled: researchEnabled, sessionBackend }));
-app.get('/', (_req, res) => res.sendFile(htmlPath));
+app.use('/assets', express.static(resolve(sitePath, 'assets'), { dotfiles: 'deny', index: false, maxAge: '1h' }));
+app.get('/', (_req, res) => res.sendFile(resolve(sitePath, 'index.html')));
+app.get('/demo', (_req, res) => res.sendFile(htmlPath));
 if (research) {
   app.get('/research', (_req, res) => res.sendFile(researchHtml));
   const localResearchRoute = (path, schema, handler) => app.post(path, async (req, res) => {
@@ -223,7 +231,7 @@ if (research) {
   localResearchRoute('/api/research/context', researchSession, ({ researchSessionId }) => research.context(researchSessionId));
   localResearchRoute('/api/research/compare', { researchSessionId: z.string().uuid().optional(), ids: z.array(z.string()).min(2).max(3).optional() }, args => research.compare(args));
 }
-app.get('/favicon.ico', (_req, res) => res.sendStatus(204));
+app.get('/favicon.ico', (_req, res) => res.redirect(302, '/assets/icon.svg'));
 app.post('/api/search', async (req, res) => {
   const result = z.object(explorerSchema).strict().safeParse(req.body);
   if (!result.success) return res.status(400).json({ error: 'Điều kiện tìm kiếm không hợp lệ.' });

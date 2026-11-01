@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:8787**. The dev command builds the self-contained widget and starts the server. After changing frontend files, run `npm run build` and refresh the browser. Server-file changes restart automatically.
+Open **http://localhost:8787** for the landing page, or **http://localhost:8787/demo** for the standalone explorer. The dev command builds the self-contained widget and starts the server. After changing frontend files, run `npm run build` and refresh the browser. Server-file changes restart automatically.
 
 Results start as compact cards with **Xem chi tiết** as the main action. Open a property to inspect its facts and missing evidence, add it to comparison, or ask ChatGPT about that home. Details and comparison are app panels that leave the ChatGPT composer usable. **Khám phá** opens the larger workspace; **Bản đồ** reveals linked pins. Both use fullscreen when supported and remain usable inline otherwise.
 
@@ -25,9 +25,13 @@ The visual direction uses terracotta accents (`#B44432` in light mode, a lighter
 
 The map uses Leaflet and OpenStreetMap tiles with visible attribution and a usable list fallback. Review the [tile policy](https://operations.osmfoundation.org/policies/tiles/) and choose a suitable tile service before broader use. Demo pins are illustrative, not verified building positions.
 
+## Website, icon and user guide
+
+The public root is the Vietnamese landing page with a three-step guide, copyable prompts and data-status FAQ. The browser explorer is at `/demo`; source research remains at `/research`. The [branding record](docs/pilot/plugin-branding.md) links the SVG/PNG icon and canonical description/starter-prompt copy. MCP initialization advertises the website and icon; refresh the existing ChatGPT app after metadata changes.
+
 ## Connect to ChatGPT
 
-Use the hosted [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe) or the [browser preview](https://vn-real-estate-gpt.vercel.app). Stable MCP endpoint: **https://vn-real-estate-gpt.vercel.app/mcp**. The hosted pilot uses Supabase and runs independently of the local server/tunnel. Inventory is still fictional; research links are unverified.
+Use the hosted [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe) or the [browser demo](https://vn-real-estate-gpt.vercel.app/demo). Stable MCP endpoint: **https://vn-real-estate-gpt.vercel.app/mcp**. The hosted pilot uses Supabase and runs independently of the local server/tunnel. Inventory is still fictional; research links are unverified.
 
 The following steps are for a separate local development connection.
 
