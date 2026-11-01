@@ -5,3 +5,5 @@
 @media(max-width:650px){.research-heading h1{font-size:20px}.toolbar{grid-template-columns:1fr 1fr}.toolbar label:first-child{grid-column:1/-1}}
 
 #website-nav:not([hidden]){display:flex;justify-content:space-between;gap:16px;margin:18px 0;font-size:13px}#freshness{line-height:1.6}
+
+.coverage{padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:13px;line-height:1.7;font-weight:600}

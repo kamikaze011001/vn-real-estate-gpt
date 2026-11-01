@@ -44,7 +44,7 @@ async function loadSources() {
       liveCards.append(card);
     }
     const latest = data.leads.map(lead=>lead.collectedAt).sort().at(-1);
-    liveStatus.textContent = data.total ? `${data.total} nguồn trong đợt thu thập · Lần đọc gần nhất ${sourceDate(latest)} (giờ Việt Nam).` : 'Chưa có nguồn còn trong thời hạn lưu trữ. Hãy quay lại sau đợt thu thập tiếp theo.';
+    liveStatus.textContent = data.total ? `${data.counts.usableGroups}/100 nhóm tin đủ điều kiện · ${data.counts.projects}/10 dự án · ${data.counts.collected} nguồn thu thập. Đọc gần nhất trong kết quả: ${sourceDate(latest)} (giờ Việt Nam).` : `${data.counts.usableGroups}/100 nhóm tin đủ điều kiện · ${data.counts.collected} nguồn đã thu thập; ${data.counts.needsContext} cần đối chiếu và ${data.counts.archive} trong kho lưu trữ. Chưa có tin đủ điều kiện; mở danh sách để xem dữ liệu đang có.`;
   } catch {
     liveCards.replaceChildren(); liveStatus.textContent='Chưa tải được nguồn đã thu thập. Hãy thử lại; trang không thay bằng căn mô phỏng.'; retry.hidden=false;
   } finally { liveCards.setAttribute('aria-busy','false'); }

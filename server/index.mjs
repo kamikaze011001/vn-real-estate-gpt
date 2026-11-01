@@ -26,7 +26,7 @@ const port = Number(process.env.PORT || 8787);
 const htmlPath = fileURLToPath(new URL('../dist/index.html', import.meta.url));
 const resourceUri = 'ui://hanoi-home/explorer-v12.html';
 const researchEnabled = process.env.RESEARCH_LINKS_ENABLED === '1';
-const researchUri = 'ui://hanoi-home/research-v2.html';
+const researchUri = 'ui://hanoi-home/research-v3.html';
 const researchHtml = fileURLToPath(new URL('../dist-research/index.html', import.meta.url));
 const sitePath = fileURLToPath(new URL('../site/', import.meta.url));
 const research = researchEnabled ? new ResearchLinks({ dbPath: process.env.RESEARCH_DB || 'private-data/forum-crawl.sqlite', manifestPath: process.env.RESEARCH_LINKS_MANIFEST || 'private-data/research-links.json' }) : null;
@@ -221,9 +221,9 @@ app.get('/', (_req, res) => res.sendFile(resolve(sitePath, 'index.html')));
 app.get('/demo', (_req, res) => res.sendFile(htmlPath));
 if (research) {
   app.get('/research', (_req, res) => res.sendFile(researchHtml));
-  app.get('/api/research/leads', async (_req, res) => {
+  app.get('/api/research/leads', async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    try { res.json(await runOperation('research', {}, () => research.search())); }
+    try { const args=z.object({...researchFilters,page:z.coerce.number().int().min(1).max(25).optional()}).strict().parse(req.query); res.json(await runOperation('research', args, () => research.search(args))); }
     catch (error) { res.status(503).json({ error: researchError(error) }); }
   });
   const localResearchRoute = (path, schema, handler) => app.post(path, async (req, res) => {

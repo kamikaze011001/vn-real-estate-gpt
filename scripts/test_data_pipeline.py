@@ -205,6 +205,33 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result['source_states'], {'otofun': 'failed', 'voz': 'ok'})
         self.assertEqual(result['source_diagnostics']['otofun']['error_counts'], {'source-time-budget': 1})
 
+    def test_refresh_sweep_has_its_own_quota_and_never_runs_discovery(self):
+        rows=[{'source_id':'otofun','source_key':f'otofun:{i}:post-1','source_url':f'https://www.otofun.net.vn/threads/test.{i}/#post-1','payload':{}} for i in range(20)]
+        class Store(MemoryStore):
+            def request(self,path):
+                return super().request(path) if path.startswith('collection_sources') else rows
+        store=Store()
+        with patch('data_pipeline.refresh',return_value=0) as refreshed, patch('data_pipeline.marketplace') as market, patch('data_pipeline.crawl') as voz:
+            result=collect(store,'refresh-test',refresh_only=True,refresh_limit=12)
+        self.assertEqual(len(refreshed.call_args.args[2]),12)
+        market.assert_not_called();voz.assert_not_called()
+        self.assertEqual(result['attempted_sources'],['otofun'])
+        self.assertEqual(result['source_states']['voz'],'idle')
+        self.assertEqual(store.finished[0]['p_discovery'],[])
+        self.assertEqual(result['outcome'],'completed')
+
+    def test_refresh_prioritizes_current_reviews_and_skips_expired_ads(self):
+        rows=[{'id':f'candidate-{i}','fingerprint':str(i),'source_id':'otofun','source_key':f'otofun:{i}:post-1','source_url':f'https://www.otofun.net.vn/threads/test.{i}/#post-1','payload':{}} for i in range(5)]
+        rows[0]['payload']['flags']=['source-ad-marked-expired-not-proof-of-sale']
+        class Store(MemoryStore):
+            def request(self,path):
+                if path.startswith('collection_sources'): return self.sources
+                if path.startswith('candidate_assessments'): return [{'candidate_id':'candidate-4','fingerprint':'4'},{'candidate_id':'candidate-3','fingerprint':'OLD'}]
+                return rows
+        with patch('data_pipeline.refresh',return_value=0) as refreshed:
+            collect(Store(),'priority-test',refresh_only=True,refresh_limit=2)
+        self.assertEqual([row['id'] for row in refreshed.call_args.args[2]],['candidate-4','candidate-1'])
+
     def test_partial_cli_succeeds_and_emits_a_ci_warning(self):
         out, err = io.StringIO(), io.StringIO()
         with patch('data_pipeline.Store'), patch('data_pipeline.collect', return_value={'outcome': 'partial'}), \

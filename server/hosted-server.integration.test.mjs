@@ -45,7 +45,7 @@ test('real Supabase + independent Node instances preserve both explorers across 
   const ids = explorer.listings.slice(0, 2).map(x => x.id);
   await b.call('set_selected_properties', { explorerSessionId: explorer.explorerSessionId, ids, focusedListingId: ids[0] });
   assert.deepEqual((await a.call('get_selected_properties', { explorerSessionId: explorer.explorerSessionId })).selectedListingIds, ids);
-  const research = await a.call('show_research_explorer'), selected = research.leads.slice(0, 2).map(x => x.id);
+  const research = await a.call('show_research_explorer',{scope:'all'}), selected = research.leads.slice(0, 2).map(x => x.id);
   await b.call('set_research_selection', { researchSessionId: research.researchSessionId, ids: selected, view: 'comparison' });
   await a.client.close();
   clients.delete(a.client); await stop(a.child);
@@ -56,14 +56,25 @@ test('real Supabase + independent Node instances preserve both explorers across 
   const removed = rows.find(row => 'research-'+fingerprint(row.source_key).slice(0,20) === selected[0]);
   await store.request('sale_candidates?id=eq.'+removed.id,{method:'DELETE'});
   assert.deepEqual((await cold.call('get_research_context', { researchSessionId: research.researchSessionId })).selectedLeadIds, [selected[1]]);
-  const response = await fetch(cold.origin + '/api/research/show', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+  const response = await fetch(cold.origin + '/api/research/show', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({scope:'all'}) });
   const data = await response.json(); assert.equal(data.total, 2);
   assert.ok(!JSON.stringify(data).includes('PRIVATE BODY'));
   const live = await fetch(cold.origin+'/api/research/leads');
   assert.equal(live.headers.get('cache-control'),'no-store');
   const feed = await live.json();
-  assert.equal(feed.total,2); assert.equal(feed.researchSessionId,undefined,'preview reads never create sessions');
-  const current = rows.find(row => 'research-'+fingerprint(row.source_key).slice(0,20) === feed.leads[0].id);
-  assert.equal(Date.parse(feed.leads[0].collectedAt),Date.parse(current.checked_at),'page reads daily dates, not old curated dates');
+  assert.equal(feed.total,0); assert.equal(feed.counts.collected,2); assert.equal(feed.researchSessionId,undefined,'preview reads never create sessions');
+  assert.equal(feed.counts.usableGroups,0,'unresolved test records are not usable supply');
   assert.ok(!JSON.stringify(feed).includes('fingerprint'));
+  const eligible=rows.find(row=>row.id!==removed.id&&!row.payload.flags.length);
+  await store.request('rpc/assess_sale_candidate',{method:'POST',body:{p_id:eligible.id,p_fingerprint:eligible.fingerprint,p_decision:'usable',
+    p_facts:{projectId:'test-project',projectLabel:'TEST ONLY Hanoi Project',hanoi:true,completedResale:true,totalAskingPriceVnd:4e9,areaM2:72,sourcePublishedAt:new Date().toISOString().slice(0,10)},
+    p_duplicate_group:null,p_duplicate_status:'distinct',p_reviewer:'PRIVATE REVIEWER',p_evidence_ref:'PRIVATE EVIDENCE',p_review_seconds:60}});
+  const usable=await fetch(cold.origin+'/api/research/leads').then(r=>r.json());
+  assert.equal(usable.total,1);assert.equal(usable.counts.usableGroups,1);assert.equal(usable.counts.projects,1);
+  assert.equal(usable.leads[0].quality.advertisedPriceVnd,4e9);assert.equal(usable.leads[0].priceVnd,null);
+  assert.ok(!JSON.stringify(usable).includes('PRIVATE'));
+  await store.request('sale_candidates?id=eq.'+eligible.id,{method:'PATCH',body:{fingerprint:'e'.repeat(64)}});
+  const revised=await fetch(cold.origin+'/api/research/leads').then(r=>r.json());
+  assert.equal(revised.total,0,'new source revision cannot inherit an old usable assessment');
+
 });

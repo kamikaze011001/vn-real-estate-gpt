@@ -167,7 +167,13 @@ def source_error(details, category):
     details['error_counts'][category] = details['error_counts'].get(category, 0) + 1
 
 
-def run_source(source, known, pages, threads, discovery=None):
+def refresh_candidates(known, source):
+    # Do not spend the freshness budget repeatedly re-reading ads already marked expired.
+    return [item for item in known if item['source_id'] == source
+            and 'source-ad-marked-expired-not-proof-of-sale' not in item.get('payload', {}).get('flags', [])]
+
+
+def run_source(source, known, pages, threads, discovery=None, refresh_only=False, refresh_limit=4):
     """One publisher owns its temporary inbox, transport and error boundary."""
     details, items, processed, frontier = empty_diagnostics(), [], 0, None
     with tempfile.TemporaryDirectory(prefix=f'hanoi-{source}-') as tmp:
@@ -176,10 +182,10 @@ def run_source(source, known, pages, threads, discovery=None):
         try:
             fetcher = Fetcher(db, 2)
             try:
-                selected_refresh = [item for item in known if item['source_id'] == source][:4]
+                selected_refresh = refresh_candidates(known, source)[:refresh_limit]
                 refresh(db, fetcher, selected_refresh, {source}, {source: details})
                 details['refresh_records'] = db.execute('select count(*) from item').fetchone()[0]
-                if not source_stopped(fetcher, source):
+                if not refresh_only and not source_stopped(fetcher, source):
                     if source == 'otofun':
                         result = marketplace(db, pages=pages, max_threads=threads, fetcher=fetcher, discovery=discovery or {},
                                              known_urls=[item['source_url'] for item in known if item['source_id'] == source])
@@ -237,7 +243,7 @@ def cooldown_active(source, stamp):
         return False
 
 
-def collect(store, run_key, pages=3, threads=12):
+def collect(store, run_key, pages=3, threads=12, refresh_only=False, refresh_limit=4):
     feeds = json.loads((ROOT / 'data/forum-feed-candidates.json').read_text())
     configured = {f['sourceId'] for f in feeds if f.get('collectionEnabled') and f.get('scheduledCollectionEnabled')}
     # select=* is compatible with a worker starting before the additive migration.
@@ -253,16 +259,24 @@ def collect(store, run_key, pages=3, threads=12):
         stamp = datetime.now(timezone.utc)
         cooled = {source for source in enabled if cooldown_active(sources[source], stamp)}
         due = sorted(enabled - cooled, key=lambda s: (sources[s].get('access_status') in {'blocked', 'failed', 'partial'}, s))
-        known = store.request('sale_candidates?' + urlencode({'select': 'source_id,source_key,source_url,payload',
+        known = store.request('sale_candidates?' + urlencode({'select': 'id,fingerprint,source_id,source_key,source_url,payload',
                               'expires_at': 'gt.' + now(), 'order': 'checked_at.asc,id.asc', 'limit': '500'})) if due else []
-        states = {source: 'cooldown' for source in cooled}
+        if known and refresh_only:
+            assessments = store.request('candidate_assessments?select=candidate_id,fingerprint&decision=eq.usable')
+            preferred = {(row.get('candidate_id'), row.get('fingerprint')) for row in assessments if row.get('candidate_id')}
+            known.sort(key=lambda row: (row.get('id'), row.get('fingerprint')) not in preferred)
+        idle = {source for source in due if refresh_only and not refresh_candidates(known, source)}
+        due = [source for source in due if source not in idle]
+        states = {source: 'idle' for source in idle}
+        states.update({source: 'cooldown' for source in cooled})
         diagnostics = {source: {**empty_diagnostics(), 'retry_after': sources[source]['retry_after']} for source in cooled}
+        diagnostics.update({source: empty_diagnostics() for source in idle})
         items, discovery_states = [], []
         for source in due:
             try:
                 with source_budget(SOURCE_BUDGET_SECONDS):
-                    discovery = store.rpc('load_source_discovery', p_source=source) if source == 'otofun' else None
-                    result = run_source(source, known, pages, threads, discovery)
+                    discovery = store.rpc('load_source_discovery', p_source=source) if source == 'otofun' and not refresh_only else None
+                    result = run_source(source, known, pages, threads, discovery, refresh_only, refresh_limit)
             except SourceBudgetExceeded:
                 details = empty_diagnostics()
                 source_error(details, 'source-time-budget')
@@ -276,8 +290,8 @@ def collect(store, run_key, pages=3, threads=12):
             if result.get('discovery'):
                 discovery_states.append(result['discovery'])
         usable = sorted(source for source, state in states.items() if state in {'ok', 'partial'})
-        outcome = 'deferred' if not due else 'completed' if all(state == 'ok' for state in states.values()) else 'partial' if usable else 'failed'
-        summary = {'source_states': dict(sorted(states.items())), 'candidate_records': len(items),
+        outcome = 'deferred' if not due and cooled else 'completed' if all(state in {'ok', 'idle'} for state in states.values()) else 'partial' if usable else 'failed'
+        summary = {'run_mode': 'refresh' if refresh_only else 'discovery', 'source_states': dict(sorted(states.items())), 'candidate_records': len(items),
                    'requests': sum(d['requests'] for d in diagnostics.values()),
                    'source_errors': sum(d['errors'] for d in diagnostics.values()),
                    'source_diagnostics': dict(sorted(diagnostics.items())), 'usable_sources': usable,
@@ -297,6 +311,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     run = sub.add_parser('collect')
+    run.add_argument('--refresh-only', action='store_true')
+    run.add_argument('--refresh-limit', type=int, choices=range(1, 21))
     run.add_argument('--apply', action='store_true')
     run.add_argument('--pages', type=int, choices=range(1, 6), default=3)
     run.add_argument('--threads', type=int, choices=range(1, 21), default=12)
@@ -307,12 +323,12 @@ def main():
         review.add_argument(key, choices=('keep', 'reject', 'needs-context') if key == 'decision' else None)
     args = parser.parse_args()
     if args.command == 'collect' and not args.apply:
-        print(json.dumps({'dry_run': True, 'scope': 'Hanoi resale apartment candidates across budgets', 'pages': args.pages, 'threads': args.threads,
+        print(json.dumps({'dry_run': True, 'scope': 'Hanoi resale apartment candidates across budgets', 'pages': args.pages, 'threads': args.threads, 'refresh_only': args.refresh_only, 'refresh_limit': args.refresh_limit or (12 if args.refresh_only else 4),
                           'note': 'Use --apply to collect into the private shared review inbox. No public catalogue publication.'}))
         return
     store = Store()
     if args.command == 'collect':
-        result = collect(store, os.environ.get('GITHUB_RUN_ID', datetime.now(timezone.utc).isoformat()), args.pages, args.threads)
+        result = collect(store, os.environ.get('GITHUB_RUN_ID', datetime.now(timezone.utc).isoformat()), args.pages, args.threads, args.refresh_only, args.refresh_limit or (12 if args.refresh_only else 4))
     elif args.command == 'status':
         runs = store.request('ingestion_runs?select=id,started_at,completed_at,outcome,summary&order=started_at.desc&limit=5')
         history = store.request('ingestion_runs?select=outcome,completed_at&outcome=in.(completed,partial)&order=completed_at.desc&limit=1')
