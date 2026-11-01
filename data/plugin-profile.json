@@ -10,5 +10,8 @@
     "So sánh hai nguồn tôi vừa chọn. Dẫn link gốc và nêu những gì cần xác minh."
   ],
   "sourceIcon": "site/assets/icon.svg",
-  "longDescription": "Tìm hiểu căn hộ Hà Nội ngay trong ChatGPT: xem nguồn tin rao có link gốc và ngày nguồn, chọn hai hoặc ba nguồn để đối chiếu, rồi hỏi những điều cần xác minh.\n\nCách bắt đầu: mở app và nhắn “Mở các nguồn tin rao căn hộ ở Hà Nội”. Chọn nguồn trong giao diện, chờ “ChatGPT đã nhận lựa chọn”, rồi hỏi “So sánh hai nguồn tôi vừa chọn”.\n\nBạn cũng có thể thử tìm theo ngân sách, số phòng ngủ, xem bản đồ và so sánh trong phần căn mô phỏng. Hiện chưa có nguồn căn thực tế được duyệt; tin rao tham khảo chưa xác minh giá, còn bán, pháp lý hay bàn giao. Bản đồ và bộ lọc yêu cầu đang dùng dữ liệu mô phỏng.\n\nHướng dẫn và thông tin dữ liệu: https://vn-real-estate-gpt.vercel.app/#cach-dung"
+  "longDescription": "Tìm hiểu căn hộ Hà Nội ngay trong ChatGPT: xem nguồn tin rao có link gốc và ngày nguồn, chọn hai hoặc ba nguồn để đối chiếu, rồi hỏi những điều cần xác minh.\n\nCách bắt đầu: mở app và nhắn “Mở các nguồn tin rao căn hộ ở Hà Nội”. Chọn nguồn trong giao diện, chờ “ChatGPT đã nhận lựa chọn”, rồi hỏi “So sánh hai nguồn tôi vừa chọn”.\n\nBạn cũng có thể thử tìm theo ngân sách, số phòng ngủ, xem bản đồ và so sánh trong phần căn mô phỏng. Hiện chưa có nguồn căn thực tế được duyệt; tin rao tham khảo chưa xác minh giá, còn bán, pháp lý hay bàn giao. Bản đồ và bộ lọc yêu cầu đang dùng dữ liệu mô phỏng.\n\nHướng dẫn và thông tin dữ liệu: https://vn-real-estate-gpt.vercel.app/#cach-dung",
+  "mcpConnectionPluginId": "plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe",
+  "mcpConnectionAppId": "asdk_app_6ae63a3ba2e8819188187ad247dcf9fe",
+  "chatgptPluginUrl": "https://chatgpt.com/plugins/Plugin_791fee034de48191a4ac5cfd580c5bd0"
 }

@@ -31,7 +31,7 @@ The public root is the Vietnamese landing page with a three-step guide, copyable
 
 ## Connect to ChatGPT
 
-Use the hosted [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe) or the [browser demo](https://vn-real-estate-gpt.vercel.app/demo). Stable MCP endpoint: **https://vn-real-estate-gpt.vercel.app/mcp**. The hosted pilot uses Supabase and runs independently of the local server/tunnel. Inventory is still fictional; research links are unverified.
+Use the hosted [Nhà Hà Nội app](https://chatgpt.com/plugins/Plugin_791fee034de48191a4ac5cfd580c5bd0) or the [browser demo](https://vn-real-estate-gpt.vercel.app/demo). Stable MCP endpoint: **https://vn-real-estate-gpt.vercel.app/mcp**. The hosted pilot uses Supabase and runs independently of the local server/tunnel. Inventory is still fictional; research links are unverified.
 
 The following steps are for a separate local development connection.
 
@@ -75,7 +75,7 @@ Open **http://127.0.0.1:8787/research**. `npm run build` builds both embedded wi
 
 Research tools are `search_research_leads`, `get_research_context`, `compare_research_leads`, widget-only `set_research_selection`, and `show_research_explorer` (resource `ui://hanoi-home/research-v1.html`). The research session preserves selected/focused source identities so comparisons can use the session without typed IDs. Research IDs never work as property IDs. Numeric matching and a research map are unavailable because the source expressions and coordinates have not been verified.
 
-The research integration has passed local UI, public MCP and actual ChatGPT checks: source cards render, widget selections reach ChatGPT, and a comparison request without typed IDs identifies the selected sources with original links, dates and unknowns. Use the stable [Nhà Hà Nội app](https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe). Its Vercel endpoint uses Supabase; no development tunnel is required. See [research integration and operating limits](docs/pilot/chatgpt-research-integration.md) and the connection record for evidence and remaining checks.
+The research integration has passed local UI, public MCP and actual ChatGPT checks: source cards render, widget selections reach ChatGPT, and a comparison request without typed IDs identifies the selected sources with original links, dates and unknowns. Use the stable [Nhà Hà Nội app](https://chatgpt.com/plugins/Plugin_791fee034de48191a4ac5cfd580c5bd0). Its Vercel endpoint uses Supabase; no development tunnel is required. See [research integration and operating limits](docs/pilot/chatgpt-research-integration.md) and the connection record for evidence and remaining checks.
 
 ## Daily Hanoi data pipeline
 

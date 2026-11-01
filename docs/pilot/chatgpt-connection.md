@@ -9,7 +9,8 @@ Stable hosting and connection checked on 1 November 2026. Earlier development ch
 - Local preview: http://localhost:8787
 - Local MCP: http://localhost:8787/mcp
 - Stable public MCP: https://vn-real-estate-gpt.vercel.app/mcp
-- Stable app: https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe
+- Branded private plugin: https://chatgpt.com/plugins/Plugin_791fee034de48191a4ac5cfd580c5bd0
+- Underlying MCP connection (retained dependency): https://chatgpt.com/plugins/plugin_asdk_app_6ae63a3ba2e8819188187ad247dcf9fe
 - Historical development MCP: https://2c68-103-238-69-196.ngrok-free.app/mcp
 - Historical public MCP (offline): https://3c83-103-238-69-197.ngrok-free.app/mcp
 - Authentication: none; the running server exposes fictional demo inventory plus the separate minimal source-link research projection. App-only writes update temporary explorer/research context, not listing or account data.
@@ -221,3 +222,13 @@ Earlier demo build/syntax checks and 31 automated tests passed; the earlier 36-t
 Current official setup: [Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt).
 
 UI decisions follow [OpenAI UI guidelines](https://developers.openai.com/plugins/concepts/ui-guidelines); host styles and display modes use the [MCP Apps UI bridge](https://developers.openai.com/plugins/build/chatgpt-ui).
+
+### Branded private package installation (1 November 2026)
+
+After explicit approval, the private package was uploaded and installed as [Nhà Hà Nội](https://chatgpt.com/plugins/Plugin_791fee034de48191a4ac5cfd580c5bd0). The actual ChatGPT profile displays the original terracotta icon, short/long descriptions, three starter prompts, one linked MCP app, the setup skill and a Website link pointing to `https://vn-real-estate-gpt.vercel.app/`. The existing `asdk_app_6ae63a3ba2e8819188187ad247dcf9fe` connection is retained; the package adds presentation and onboarding rather than registering another endpoint. No public-directory submission occurred.
+
+The archive uploader first exposed a stale selected-file error, resolved by rebuilding before selecting the ZIP, then required the underlying App ID rather than the browser wrapper ID. The package builder now validates that mapping. The supported package mechanism follows the official [registered MCP plugin workflow](https://developers.openai.com/plugins/build/plugins#create-and-test-a-plugin-locally-with-an-mcp-server).
+
+The installed package's **Set up Nhà Hà Nội** action invoked its bundled setup skill in a new ChatGPT conversation and opened the existing seven-source explorer. Selecting Samsora Vạn Phúc and CT1A-ĐN1/Mỹ Đình II produced **ChatGPT đã nhận lựa chọn**. The exact starter prompt “So sánh hai nguồn tôi vừa chọn. Dẫn link gốc và nêu những gì cần xác minh.” returned that pair without typed IDs, cited both original OTOFUN posts and dates, retained unknown availability/completion/legal claims, and distinguished the per-m² rate from an unconfirmed total. The answer computed no price difference. The expanded source comparison and composer remained available.
+
+Private package setup/comparison conversation: https://chatgpt.com/c/6ae6b6a9-db90-83ec-a047-0067a060029f . Actual-host inspection used Brave accessibility state plus a screenshot confirming the profile icon and Website row; this does not replace physical mobile or a complete screen-reader test.
