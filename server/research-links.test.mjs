@@ -82,7 +82,7 @@ test('default research view does not count unresolved source records as usable a
 
 test('pagination preserves selections across pages and filtering returns to page one',()=>{
   const r=new ResearchLinks({clock:()=>Date.now()});
-  r.records=()=>Array.from({length:43},(_,i)=>({id:`record-${i}`,label:`Project ${i}`,quality:{state:'needs-context',clusterId:`c-${i}`}}));
+  r.records=()=>Array.from({length:43},(_,i)=>({id:`record-${i}`,label:`Project ${i}`,source:'ALONHADAT',quality:{state:'needs-context',clusterId:`c-${i}`}}));
   const first=r.show({scope:'all'}),id=first.researchSessionId;
   assert.equal(first.leads.length,20);assert.equal(first.total,43);assert.equal(first.pages,3);assert.equal(first.counts.collected,43);
   const second=r.show({researchSessionId:id,page:2});
@@ -94,4 +94,5 @@ test('pagination preserves selections across pages and filtering returns to page
   const filtered=r.show({researchSessionId:id,query:'Project 1'});
   assert.equal(filtered.page,1);assert.equal(filtered.counts.collected,43);
   assert.deepEqual(filtered.selectedLeadIds,['record-20']);
+  assert.equal(r.search({scope:'all',query:'alonhadat'}).total,43,'source-name queries find project-labelled ads');
 });

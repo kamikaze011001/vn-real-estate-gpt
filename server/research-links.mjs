@@ -110,7 +110,7 @@ export class ResearchLinks {
     const all = researchSessionId ? this.session(researchSessionId) : { records: this.records(), session: { query: '', scope: 'usable' } };
     const actualQuery = query ?? all.session.query, actualScope = scope ?? all.session.scope;
     const words = normal(actualQuery).split(/\s+/).filter(Boolean);
-    const filtered = all.records.filter(lead => words.every(word => normal(lead.label+' '+(lead.quality?.projectLabel??'')).includes(word)))
+    const filtered = all.records.filter(lead => words.every(word => normal(lead.label+' '+(lead.source??'')+' '+(lead.quality?.projectLabel??'')).includes(word)))
       .filter(lead => actualScope === 'all' || (actualScope === 'expired' ? lead.sourceStatus === 'source-expired' : actualScope === 'unverified' ? lead.sourceStatus === 'unverified-ad' : lead.quality.state === (actualScope === 'research' ? 'needs-context' : actualScope)));
     const reset=(query!==undefined&&query!==all.session.query)||(scope!==undefined&&scope!==all.session.scope);
     const pages=Math.max(1,Math.ceil(filtered.length/20)),actualPage=Math.min(page??(reset?1:all.session.page)??1,pages),leads=filtered.slice((actualPage-1)*20,actualPage*20);
