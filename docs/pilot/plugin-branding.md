@@ -23,3 +23,9 @@ Guidance used: [OpenAI plugin names/descriptions/prompts](https://developers.ope
 ## Static output routing
 
 The first hosted smoke caught Vercel serving the compiled widget `dist/index.html` at `/` before the Express rewrite. Cache-busted requests were CDN misses and new assets were present, ruling out a stale cache or missing landing files. Set `outputDirectory: "site"` explicitly so the public static root is the landing page; retain both compiled widgets in the function for MCP resources and `/demo`. A pre-upload `check-vercel-output.mjs` assertion now checks the static landing root, PNG and both embedded resource files/mappings; the public root/guide assertion remains the end-to-end release check. This uses Vercel’s documented [output-directory override](https://vercel.com/docs/project-configuration/vercel-json#outputdirectory).
+
+## Rich private plugin package
+
+Actual-host refresh of the custom MCP connection left its generic icon and `Website: Unavailable`; the edited human description did save and display. Runtime MCP identity is therefore insufficient to customize that wrapper in the tested host. The supported rich package declares `extensions.com.openai.interface.websiteURL`, logo/composer icon, descriptions and default prompts, plus the existing registered MCP connection in `.app.json`.
+
+`npm run package:plugin` builds `artifacts/nha-ha-noi-plugin.zip` from the canonical profile, original PNG and the bundled `plugin/skills/setup/SKILL.md`. The ZIP includes only those metadata/assets/instructions, with no credentials, raw sources, execution hooks or local server. The setup skill passed the installed skill validator. ChatGPT's Plugins → Add → Upload plugin archive is a private-install route, distinct from public-directory submission. Retain the original registered connection because the package depends on it. Verify the installed package's icon, Website link and a fresh tool flow before changing the website's launch link.
