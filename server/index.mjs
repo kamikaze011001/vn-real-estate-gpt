@@ -100,7 +100,7 @@ function createMcpServer() {
   const server = new McpServer({
     name: `hanoi-home-${inventoryMode}`, title: pluginProfile.name, version: '0.1.0',
     description: pluginProfile.description, websiteUrl: pluginProfile.website,
-    icons: [{ src: new URL('/assets/icon-512.png', pluginProfile.website).href, mimeType: 'image/png', sizes: ['512x512'] }],
+    icons: [{ src: new URL(`/assets/icon-512.png?v=${pluginProfile.iconVersion}`, pluginProfile.website).href, mimeType: 'image/png', sizes: ['512x512'] }],
   }, { instructions: `${inventoryGuidance} For help getting started, explain browsing sources, selecting two or three items and asking about those selections without typing IDs. User guide: ${pluginProfile.website}#cach-dung. Research links and property inventory are separate workflows.` });
   if (research) {
     registerAppResource(server, 'research-links', researchUri, {}, async () => ({ contents: [{ uri: researchUri, mimeType: RESOURCE_MIME_TYPE, text: await readFile(researchHtml, 'utf8'), _meta: {
@@ -229,6 +229,7 @@ app.use(express.json({ limit: '64kb' }));
 app.get('/health', (_req, res) => res.json({ ok: true, mode: inventoryMode, version: '0.1.0', researchLinksEnabled: researchEnabled, sessionBackend }));
 app.use('/assets', express.static(resolve(sitePath, 'assets'), { dotfiles: 'deny', index: false, maxAge: '1h' }));
 app.get('/', (_req, res) => res.sendFile(resolve(sitePath, 'index.html')));
+app.get('/pilot', (_req, res) => res.sendFile(resolve(sitePath, 'pilot.html')));
 app.get('/demo', (_req, res) => res.sendFile(htmlPath));
 if (research) {
   app.get('/research', (_req, res) => res.sendFile(researchHtml));

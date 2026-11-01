@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dùng thử Nhà Hà Nội cùng nhóm nhỏ</title>
+  <meta name="description" content="Kết nối Nhà Hà Nội trong tài khoản ChatGPT của bạn và thử xem nguồn, chuẩn bị trước khi xem nhà, so sánh tin đã chọn.">
+  <meta name="theme-color" content="#A54F39">
+  <meta property="og:title" content="Mời bạn dùng thử Nhà Hà Nội">
+  <meta property="og:description" content="Nguồn tin rao căn hộ Hà Nội có link gốc, điều cần kiểm tra và câu hỏi trước khi xem nhà.">
+  <meta property="og:image" content="https://vn-real-estate-gpt.vercel.app/assets/icon-512.png?v=2">
+  <link rel="canonical" href="https://vn-real-estate-gpt.vercel.app/pilot">
+  <link rel="icon" href="/assets/icon.svg?v=2" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/landing.css"><script src="/assets/landing.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#noi-dung">Đến nội dung chính</a>
+  <header class="header wrap"><a href="/" class="brand"><img src="/assets/icon.svg?v=2" width="40" height="40" alt=""><span>Nhà Hà Nội</span></a><nav aria-label="Điều hướng"><a href="/research?scope=research">Xem nguồn trên website</a><a href="/#cach-dung">Cách dùng</a></nav></header>
+  <main id="noi-dung" class="pilot-guide wrap">
+    <p class="eyebrow">MỜI BẠN DÙNG THỬ · CĂN HỘ HÀ NỘI</p>
+    <h1>Thử cùng nhau,<br>hiểu rõ hơn trước khi xem nhà.</h1>
+    <p class="intro">Xem nguồn tin rao, chọn điều cần đối chiếu và chuẩn bị câu hỏi cho người bán. Bạn dùng tài khoản ChatGPT của chính mình; không cần tài khoản riêng với Nhà Hà Nội.</p>
+    <div class="pilot-notice"><strong>Đây là bản thử nghiệm theo nhóm nhỏ.</strong><p>Chưa phát hành trong thư mục plugin công khai. Tin rao chưa được xác minh còn bán, đúng căn, thông số hoặc giấy tờ. Bản đồ và bộ lọc căn dùng dữ liệu mô phỏng riêng.</p></div>
+
+    <section aria-labelledby="connect-title"><h2 id="connect-title">Kết nối một lần trong ChatGPT</h2>
+      <ol class="pilot-steps">
+        <li>Mở <a href="https://chatgpt.com/plugins" target="_blank" rel="noopener noreferrer">ChatGPT → Plugins ↗</a>, chọn nút <strong>+</strong>, rồi <strong>Add custom MCP server</strong>.</li>
+        <li>Đặt tên <strong>Nhà Hà Nội</strong>. Dán địa chỉ bên dưới vào <strong>Server URL</strong>. Chọn <strong>No authentication / None</strong> nếu được hỏi.</li>
+      </ol>
+      <div class="pilot-endpoint"><code id="pilot-endpoint">https://vn-real-estate-gpt.vercel.app/mcp</code><button class="copy" type="button" data-copy="pilot-endpoint" data-copy-message="Đã sao chép địa chỉ. Dán vào ô Server URL trong ChatGPT.">Sao chép địa chỉ</button></div>
+      <ol class="pilot-steps" start="3">
+        <li>Đọc thông báo chia sẻ dữ liệu của ChatGPT; chỉ tiếp tục nếu bạn đồng ý. Khi dùng app, ChatGPT có thể gửi nội dung liên quan trong cuộc trò chuyện và bộ nhớ được bật tới máy chủ Nhà Hà Nội để xử lý yêu cầu.</li>
+        <li>Chọn <strong>Create as a plugin</strong>, kiểm tra công cụ được tìm thấy, rồi cài hoặc mở plugin vừa tạo. Bắt đầu cuộc trò chuyện mới, gõ <strong>@</strong> và chọn <strong>Nhà Hà Nội</strong>.</li>
+      </ol>
+      <p class="pilot-note">Tên mục có thể khác theo giao diện. Quyền thêm máy chủ MCP tùy tài khoản và chính sách. Nếu không thấy lựa chọn này, bạn vẫn có thể <a href="/research?scope=research">dùng website để xem, chọn, so sánh và chuẩn bị trước khi xem nhà</a>.</p>
+    </section>
+
+    <section aria-labelledby="task-title"><h2 id="task-title">Thử một việc trong 5 phút</h2>
+      <p>Sao chép câu này, gửi trong cuộc trò chuyện đã chọn Nhà Hà Nội:</p>
+      <article class="prompt-card"><p id="pilot-prompt" class="prompt-text">Mở các nguồn tin rao căn hộ Hà Nội cần đối chiếu. Giữ rõ điều chưa xác minh.</p><button class="copy" type="button" data-copy="pilot-prompt">Sao chép câu hỏi</button></article>
+      <ol class="pilot-steps">
+        <li>Mở một tin bạn muốn tìm hiểu, rồi bấm <strong>Chuẩn bị trước khi xem nhà</strong>. Hoặc chọn 1–3 tin để chuẩn bị cùng lúc.</li>
+        <li>Đọc một điều có nguồn hỗ trợ, khoảng trống lớn nhất và một câu hỏi bạn sẽ hỏi người bán. Tài liệu cấp dự án chưa chứng minh tin thuộc đúng tòa.</li>
+        <li>Muốn so sánh? Chọn hai tin, chờ <strong>ChatGPT đã nhận lựa chọn</strong>, rồi nhắn <strong>“So sánh hai nguồn tôi đã chọn”</strong>. Không cần gõ mã.</li>
+      </ol>
+      <p>Nếu đã nêu ngân sách, phòng ngủ hoặc điều kiện bắt buộc trong chat, app giữ các yêu cầu đó. Một bản chuẩn bị thiếu bằng chứng vẫn dùng được để biết cần hỏi gì; không đồng nghĩa tin đã phù hợp.</p>
+      <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-labelledby="feedback-title"><h2 id="feedback-title">Sau khi thử, kể lại điều đã xảy ra</h2><p>Bạn chọn tin nào? Điều gì có nguồn hỗ trợ, điều gì vẫn chưa rõ? Bạn định hỏi người bán câu nào, và bước nào khiến bạn bị vướng? Gửi lại cho người mời bạn; không cần làm một cuộc phỏng vấn dài.</p></section>
+    <details class="pilot-alternative"><summary>Nếu cả nhóm cùng một workspace ChatGPT</summary><p>Quản trị viên có thể cho phép chủ plugin chia sẻ với người hoặc nhóm được chọn trong workspace. Cần quyền Share plugins; khả năng chia sẻ tùy workspace. Cách kết nối riêng ở trên dành cho các tài khoản cá nhân tách biệt.</p></details>
+    <p class="pilot-note">Địa chỉ máy chủ đang truy cập được công khai. Hướng dẫn gửi trong nhóm nhỏ không tạo giới hạn chỉ thành viên nhóm mới truy cập được.</p>
+    <p class="pilot-note">Hướng dẫn nền tảng: <a href="https://developers.openai.com/plugins/deploy/connect-chatgpt" target="_blank" rel="noopener noreferrer">OpenAI — Connect and test your plugin ↗</a>.</p>
+  </main>
+  <footer class="footer wrap"><a class="brand" href="/"><img src="/assets/icon.svg?v=2" width="28" height="28" alt=""><span>Nhà Hà Nội</span></a><div><a href="/research?scope=research">Xem nguồn</a><a href="https://github.com/kamikaze011001/vn-real-estate-gpt/issues">Góp ý</a><span>Bản thử nghiệm</span></div></footer>
+</body></html>
