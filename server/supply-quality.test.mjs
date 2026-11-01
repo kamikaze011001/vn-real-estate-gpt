@@ -10,7 +10,7 @@ test('source freshness, actual ad dates and supplier evidence are separate gates
   [lead('one',{sourceStatus:'source-expired'}),assessment(),'archive'],
   [lead('one',{collectedAt:'2026-10-28T01:00:00Z'}),assessment(),'archive'],
   [lead('one',{publishedAt:'2026-07-01'}),assessment(),'archive'],
-  [lead('one',{publishedAt:null}),assessment(),'archive'],
+  [lead('one',{publishedAt:null}),assessment(),'needs-context'],
   [lead('one',{publishedAt:'2026-07-01'}),assessment({facts:{...assessment().facts,supplierConfirmedAt:'2026-10-31T12:00:00Z',supplierRole:'owner'}}),'usable'],
   [lead('one',{publishedAt:'2026-07-01'}),assessment({facts:{...assessment().facts,supplierConfirmedAt:'2026-10-20T12:00:00Z',supplierRole:'owner'}}),'archive'],
  ];

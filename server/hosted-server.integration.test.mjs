@@ -77,4 +77,20 @@ test('real Supabase + independent Node instances preserve both explorers across 
   const revised=await fetch(cold.origin+'/api/research/leads').then(r=>r.json());
   assert.equal(revised.total,0,'new source revision cannot inherit an old usable assessment');
 
+  const portal={...eligible,id:'candidate-'+'f'.repeat(24),source_id:'alonhadat',source_key:'alonhadat:12345678:ad-12345678',
+    source_url:'https://alonhadat.com.vn/test-only-12345678.html',fingerprint:'f'.repeat(64),
+    payload:{...eligible.payload,format:'public-ad',post_key:'ad-12345678',source_published_at:null,source_edited_at:null,
+      projects:[{label:'TEST ONLY Source Project'}],fields:{...eligible.payload.fields,displayed_date:new Date().toISOString().slice(0,10),area_label:'Cầu Giấy'},flags:['source-date-semantics-unresolved']}};
+  rows.push(portal);
+  await store.request('sale_candidates',{method:'POST',body:portal});
+  const portalFeed=await fetch(cold.origin+'/api/research/leads?scope=research').then(r=>r.json());
+  const portalLead=portalFeed.leads.find(x=>x.source==='ALONHADAT');
+  assert.ok(portalLead);assert.equal(portalLead.publishedAt,null);assert.ok(portalLead.displayedAt);
+  assert.equal(portalLead.quality.state,'needs-context','displayed source date never proves freshness');
+  assert.equal(portalFeed.counts.usableGroups,0);
+  const mixed=await cold.call('show_research_explorer',{scope:'all'});
+  const mixedIds=[portalLead.id,mixed.leads.find(x=>x.source==='OTOFUN').id];
+  await b.call('set_research_selection',{researchSessionId:mixed.researchSessionId,ids:mixedIds});
+  assert.deepEqual((await cold.call('compare_research_leads',{researchSessionId:mixed.researchSessionId})).leads.map(x=>x.id),mixedIds);
+
 });

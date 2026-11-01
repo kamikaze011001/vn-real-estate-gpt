@@ -17,6 +17,7 @@ for (let attempt = 0; attempt < 50; attempt += 1) {
     await store.request('rpc/load_catalogue', { method: 'POST', body: {} });
     await store.request('collection_sources?select=failure_count,retry_after&limit=1');
     await store.request('candidate_assessments?select=candidate_id&limit=1');
+    if(!(await store.request('collection_sources?id=eq.alonhadat&select=id')).length)throw new Error('Additional source migration missing');
     await store.request('rpc/load_source_discovery', { method:'POST', body:{p_source:'otofun'} });
     ready = true; break;
   }

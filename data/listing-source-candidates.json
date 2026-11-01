@@ -1,0 +1,11 @@
+[
+  {
+    "sourceId": "alonhadat",
+    "role": "minimal-ad-facts-and-links",
+    "discoveryPage": "https://alonhadat.com.vn/can-ban-can-ho-chung-cu/ha-noi",
+    "collectionEnabled": true,
+    "scheduledCollectionEnabled": true,
+    "permission": "no-content-republication-grant",
+    "scopeLimit": "User-authorized bounded public numeric facts, source project/area labels, displayed date and original links only. No descriptions, contacts, photos or approved inventory; source date semantics and resale/completion remain unresolved. Activation also requires the shared source scheduled flag."
+  }
+]
