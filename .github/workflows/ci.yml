@@ -98,6 +98,8 @@ jobs:
         run: npm exec -- vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - name: Build the Vercel deployment
         run: npm exec -- vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Verify landing and embedded resources in the production artifact
+        run: node scripts/check-vercel-output.mjs
       - name: Deploy the checked artifact
         shell: bash
         run: |
