@@ -88,7 +88,10 @@ async function sendBriefRequirements(ids = state.data.viewingBrief?.items.map(it
   const labels = ids.map(getLead).filter(Boolean).map(lead => lead.label);
   state.sending = true; $('brief-delivery').textContent = 'Đang nhờ ChatGPT gắn yêu cầu đã có trong cuộc trò chuyện…'; render();
   try {
-    const prompt = `Chuẩn bị trước khi xem nhà cho ${labels.join(' và ')}. Đọc get_research_context với researchSessionId="${sessionId}", rồi gọi show_viewing_brief cho đúng IDs tại lúc bấm ${JSON.stringify(ids)}. Gắn các điều kiện bắt buộc tôi đã nêu trong cuộc trò chuyện vào requirements; giữ nguyên yêu cầu đã lưu và chỉ xóa khi tôi yêu cầu. Nếu tôi chưa nêu yêu cầu, vẫn mở bản chuẩn bị một phần, không hỏi thêm bảng câu hỏi. Giữ riêng tài liệu dự án có điều kiện với nhận dạng tòa đã kiểm chứng. Nêu ngắn bước tiếp theo và khoảng trống lớn nhất.`;
+    await writes.catch(() => {});
+    const captured = await tool('show_viewing_brief', { researchSessionId: sessionId, ids });
+    if (state.data.researchSessionId === sessionId) receive(captured);
+    const prompt = `Chuẩn bị trước khi xem nhà cho ${labels.join(' và ')} trong bản chuẩn bị tôi vừa mở. Dùng các điều kiện bắt buộc tôi đã nêu trong cuộc trò chuyện, giữ nguyên yêu cầu chưa thay đổi và mở bản cập nhật trong app. Nếu chưa có yêu cầu, vẫn giữ bản một phần, không cần hỏi thêm bảng câu hỏi. Nêu ngắn bước tiếp theo và khoảng trống lớn nhất; phân biệt tài liệu dự án với thông tin đã kiểm chứng của đúng căn.`;
     const result = await bridge.sendMessage({ role: 'user', content: [{ type: 'text', text: prompt }] });
     if (result.isError) throw new Error('send failed');
     $('brief-delivery').textContent = 'Đã gửi đến ChatGPT. Bản cập nhật sẽ dùng yêu cầu trong cuộc trò chuyện; bản hiện tại vẫn dùng được.';

@@ -27,7 +27,7 @@ const port = Number(process.env.PORT || 8787);
 const htmlPath = fileURLToPath(new URL('../dist/index.html', import.meta.url));
 const resourceUri = 'ui://hanoi-home/explorer-v12.html';
 const researchEnabled = process.env.RESEARCH_LINKS_ENABLED === '1';
-const researchUri = 'ui://hanoi-home/research-v5.html';
+const researchUri = 'ui://hanoi-home/research-v6.html';
 const researchHtml = fileURLToPath(new URL('../dist-research/index.html', import.meta.url));
 const sitePath = fileURLToPath(new URL('../site/', import.meta.url));
 const research = researchEnabled ? new ResearchLinks({ dbPath: process.env.RESEARCH_DB || 'private-data/forum-crawl.sqlite', manifestPath: process.env.RESEARCH_LINKS_MANIFEST || 'private-data/research-links.json' }) : null;
@@ -122,7 +122,7 @@ function createMcpServer() {
       description: `Use this to compare two or three unverified research source links. For widget selections pass researchSessionId from show_research_explorer; IDs are read server-side, so the user need not type them. Explicit ids may be used for a direct request. Never call compare_properties with research IDs. No cheapest/largest claim or price difference can be computed from these source expressions. ${researchGuidance}`,
       inputSchema: { researchSessionId: z.string().uuid().optional(), ids: z.array(z.string()).min(2).max(3).optional() }, outputSchema: researchOutputShape, annotations,
     }, researchCall(args => research.compare(args)));
-    const briefGuidance = 'Use this when the user prepares a viewing of one to three research ads. FIRST read get_research_context for selections/focus and saved requirements; never ask users to type IDs. Pass only explicit must-haves already in the conversation, preserve previous requirements, clear only on explicit user request. A partial brief is useful now; do not require a questionnaire. Read the action, gaps, up to three seller questions and dated/scoped sources. Tentative project context does not identify the advertised building. Never infer current fees, legal compliance, availability or hard matches from old documents or raw expressions.';
+    const briefGuidance = 'Use this when the user prepares a viewing of one to three research ads. FIRST read get_research_context for selections/focus, briefLeadIds and saved requirements; never ask users to type IDs. For an existing preparation or a handoff from its UI, use the captured briefLeadIds, which remain separate from current comparison selections. For a new request about selected or focused ads, pass those explicit IDs instead. Pass only explicit must-haves already in the conversation, preserve previous requirements, clear only on explicit user request. A partial brief is useful now; do not require a questionnaire. Read the action, gaps, up to three seller questions and dated/scoped sources. Tentative project context does not identify the advertised building. Never infer current fees, legal compliance, availability or hard matches from old documents or raw expressions.';
     addDataTool(server, 'get_viewing_brief', {
       title: 'Đọc chuẩn bị trước khi xem nhà', description: `${briefGuidance} Returns data only; use show_viewing_brief to display it.`,
       inputSchema: researchBrief, outputSchema: researchOutputShape, annotations,

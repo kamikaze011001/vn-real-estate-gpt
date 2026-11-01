@@ -38,7 +38,7 @@ export const researchOutputShape = {
   counts: countsSchema, page:z.number().int(),pageSize:z.literal(20),pages:z.number().int(),
   total: z.number().int(), query: z.string(), scope: z.enum(['usable', 'research', 'archive', 'all', 'expired', 'unverified']),
   researchSessionId: z.string().uuid().optional(), selectedLeadIds: z.array(z.string()).optional(),
-  contextLeads: z.array(leadSchema).optional(),
+  contextLeads: z.array(leadSchema).optional(), briefLeadIds: z.array(z.string()).max(3).optional(),
   focusedLeadId: z.string().nullable().optional(), viewingBrief: briefSchema.optional(), requirements: requirementsSchema.optional(),
   view: z.enum(['list', 'details', 'comparison', 'brief']).optional(), revision: z.number().int().optional(),
 };
@@ -130,7 +130,7 @@ export class ResearchLinks {
     }
     return { ...this.search({ researchSessionId: id }), researchSessionId: id, selectedLeadIds: [...session.ids], focusedLeadId: session.focusedId,
       contextLeads: records.filter(lead => session.ids.includes(lead.id) || lead.id === session.focusedId || (session.briefIds ?? []).includes(lead.id)), view: session.view, revision: session.revision,
-      requirements: session.requirements ?? {},
+      requirements: session.requirements ?? {}, briefLeadIds: [...(session.briefIds ?? [])],
       ...(viewingBrief ? { viewingBrief } : {}) };
   }
   write(id, ids, { focusedLeadId, query, scope, view, page, requirements, clearRequirements } = {}) {
@@ -160,7 +160,7 @@ export class ResearchLinks {
   }
   brief({ researchSessionId, ids, requirements, clearRequirements } = {}) {
     const { records, session } = researchSessionId ? this.session(researchSessionId) : { records: this.records(), session: {} };
-    const chosen = ids ?? (session.view === 'brief' && session.briefIds?.length ? session.briefIds : session.ids?.length ? session.ids : session.focusedId ? [session.focusedId] : session.briefIds ?? []);
+    const chosen = ids ?? (session.briefIds?.length ? session.briefIds : session.ids?.length ? session.ids : session.focusedId ? [session.focusedId] : session.briefIds ?? []);
     const merged = mergeRequirements(session.requirements, requirements, clearRequirements);
     const viewingBrief = this.makeBrief(records, chosen, merged);
     return { ...this.search({ researchSessionId, scope: 'all' }), leads: chosen.map(id => records.find(lead => lead.id === id)),
@@ -169,7 +169,7 @@ export class ResearchLinks {
   showBrief(args = {}) {
     const id = args.researchSessionId ?? this.show({ scope: 'all' }).researchSessionId;
     const { session, records } = this.session(id);
-    const chosen = args.ids ?? (session.view === 'brief' && session.briefIds?.length ? session.briefIds : session.ids.length ? session.ids : session.focusedId ? [session.focusedId] : session.briefIds ?? []);
+    const chosen = args.ids ?? (session.briefIds?.length ? session.briefIds : session.ids.length ? session.ids : session.focusedId ? [session.focusedId] : session.briefIds ?? []);
     const requirements = mergeRequirements(session.requirements, args.requirements, args.clearRequirements);
     this.makeBrief(records, chosen, requirements); // Validate before changing any state.
     Object.assign(session, { briefIds: [...chosen], requirements, view: 'brief', revision: session.revision + 1, updatedAt: this.clock() });
