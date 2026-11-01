@@ -47,13 +47,13 @@ try {
     assert.equal(feed.researchOnly, true);
     assert.equal(feed.researchSessionId, undefined, 'preview reads must not create sessions');
     assert.ok(feed.leads.every(lead => lead.inventoryEligible === false && lead.priceVnd === null));
-    const research = await call('show_research_explorer'); sources = research.total;
+    const research = await call('show_research_explorer',{scope:'all'}); sources = research.total;
     if (sources >= 2) {
       const selected = research.leads.slice(0, 2).map(x => x.id);
       await call('set_research_selection', { researchSessionId: research.researchSessionId, ids: selected });
       assert.deepEqual((await call('compare_research_leads', { researchSessionId: research.researchSessionId })).leads.map(x => x.id), selected);
     }
-    await client.readResource({ uri: 'ui://hanoi-home/research-v2.html' });
+    await client.readResource({ uri: 'ui://hanoi-home/research-v3.html' });
   }
   console.log(JSON.stringify({ ok: true, origin: base.origin, sessionBackend: health.sessionBackend, sources, selectionComparison: 'passed' }));
 } finally { await client.close(); }

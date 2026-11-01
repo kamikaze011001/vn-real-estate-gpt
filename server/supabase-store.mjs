@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { leadSchema } from './research-links.mjs';
+import { applySupplyPolicy } from './supply-quality.mjs';
+import { fingerprint } from './research-links.mjs';
 import { candidateResearch } from './candidate-research.mjs';
 
 const namespace = z.enum(['explorer', 'research']);
@@ -40,14 +42,21 @@ export class SupabaseStore {
   async researchRecords() {
     const clock = Date.now(), current = `gt.${new Date(clock).toISOString()}`;
     const [rows, names] = await Promise.all([
-      this.request(`sale_candidates?${new URLSearchParams({ expires_at:current, select:'id,source_id,source_key,source_url,fingerprint,payload,checked_at,expires_at', order:'checked_at.desc,id.asc', limit:'100' })}`),
+      this.request(`sale_candidates?${new URLSearchParams({ expires_at:current, select:'id,source_id,source_key,source_url,fingerprint,payload,checked_at,expires_at', order:'checked_at.desc,id.asc', limit:'500' })}`),
       this.request(`research_sources?${new URLSearchParams({ expires_at:current, select:'payload', limit:'50' })}`),
     ]);
     const ids = rows.map(row => row.id).filter(id => /^candidate-[a-f0-9]{24}$/.test(id));
-    const reviews = ids.length ? await this.request(`candidate_reviews?${new URLSearchParams({ select:'candidate_id,fingerprint,decision', decision:'eq.reject', candidate_id:`in.(${ids.join(',')})` })}`) : [];
+    const batches=[];
+    for(let offset=0;offset<ids.length;offset+=100){const group=ids.slice(offset,offset+100);batches.push(Promise.all([
+      this.request(`candidate_reviews?${new URLSearchParams({select:'candidate_id,fingerprint,decision',decision:'eq.reject',candidate_id:`in.(${group.join(',')})`})}`),
+      this.request(`candidate_assessments?${new URLSearchParams({select:'candidate_id,fingerprint,decision,facts,duplicate_group,duplicate_status',candidate_id:`in.(${group.join(',')})`})}`),
+    ]));}
+    const grouped=await Promise.all(batches),reviews=grouped.flatMap(x=>x[0]),assessments=grouped.flatMap(x=>x[1]);
+    const assessed=new Map();
+    for(const row of rows){const assessment=assessments.find(a=>a.candidate_id===row.id&&a.fingerprint===row.fingerprint);if(assessment)assessed.set('research-'+fingerprint(row.source_key).slice(0,20),assessment);}
     const curated = names.flatMap(row => { const result = leadSchema.safeParse(row.payload); return result.success && Date.parse(result.data.expiresAt)>clock ? [result.data] : []; });
     // No static/demo fallback: the live inbox alone controls current membership and dates.
-    return candidateResearch(rows, curated, reviews, clock).sort((a,b) =>
+    return applySupplyPolicy(candidateResearch(rows, curated, reviews, clock),assessed,clock).sort((a,b) =>
       Number(a.sourceStatus === 'source-expired') - Number(b.sourceStatus === 'source-expired') || Date.parse(b.collectedAt)-Date.parse(a.collectedAt));
   }
   async replaceResearch(leads) {

@@ -1,0 +1,11 @@
+{
+  "candidateId": "REPLACE_FROM_PRIVATE_QUEUE",
+  "fingerprint": "REPLACE_FROM_PRIVATE_QUEUE",
+  "decision": "needs-context",
+  "facts": {},
+  "duplicateGroup": null,
+  "duplicateStatus": "unchecked",
+  "reviewer": "REPLACE_OPERATOR",
+  "evidenceRef": "REPLACE_PRIVATE_EVIDENCE_REFERENCE",
+  "reviewSeconds": 0
+}

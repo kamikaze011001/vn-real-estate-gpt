@@ -11,7 +11,7 @@ The product direction below was approved in discussion. Buyer problems, suitable
 | Audience | People buying a home for their own use |
 | First market | Hanoi; later expansion across Northern Vietnam |
 | First inventory | Completed apartments offered for resale |
-| Acquisition | Aim for 15–30 relevant, original listings supplied with permission by owners or agencies |
+| Acquisition | Hybrid source discovery and permissioned owner/agency intake; first checkpoint 100 usable, provisionally unique ads across at least ten projects |
 | Interface | Vietnamese conversation, listing cards, an interactive map, comparisons, and optional shortlists |
 | Accounts | Search, map exploration, and comparison require no separate account with us; persistent saves are optional |
 | Matching | Distinguish must-have constraints from preferences and explain compromises |
@@ -20,6 +20,8 @@ The product direction below was approved in discussion. Buyer problems, suitable
 | Validation | Build first; observe three short task-based sessions, revise, and expand recruitment |
 
 ## User journey
+
+The 1 November expansion decision supersedes the original 15–30 acquisition target: use a four-week working target with a seven-day feasibility review and a 15-minute daily exception budget. “Usable” requires coherent reviewed source facts and 72-hour source freshness plus a genuine ad date within 30 days or supplier reconfirmation within seven days. It does not establish independently verified availability or legal status. Default source results show usable groups, with explicit unresolved and archive views; suspected duplicates provisionally count once while evidence remains separate. The forum counter and permissioned supplier catalogue are separate until cross-channel reconciliation. See [policy, operating limits and scorecard](usable-supply-operations.md).
 
 1. Start with a search request or an existing property the user wants to discuss. Support entering directly at comparison when the app has enough information.
 2. Clarify only missing information needed for the next useful result: budget ceiling, bedrooms, acceptable locations, and other must-haves. Separate preferences from exclusions.

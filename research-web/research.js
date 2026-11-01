@@ -9,6 +9,7 @@ const state = { data: null, ids: [], focused: null, view: 'list', synced: false,
 let bridge, connected = false, host = {}, writes = Promise.resolve(), writeVersion = 0;
 const date = value => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Chưa rõ';
 const localDate = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+const qualityReasons = {'source-expired':'Nguồn đánh dấu hết hạn.','source-stale':'Quá 72 giờ chưa đọc lại nguồn.','old-ad':'Tin nguồn quá 30 ngày, chưa có xác nhận lại trong 7 ngày.','source-date-missing':'Chưa có ngày đăng hoặc sửa thực sự.','review-needed':'Cần đối chiếu dự án, phạm vi, giá và diện tích.','possible-duplicate':'Có thể trùng căn với nguồn khác; tạm đếm chung một nhóm.'};
 const riskNames = {
   'quantity-context-unresolved': 'Các con số có thể thuộc nhiều căn, tiện ích hoặc phương án sửa; chưa xác định con số nào mô tả đúng căn.',
   'location-unresolved': 'Chưa xác nhận vị trí thuộc phạm vi Hà Nội; tin có thể nhắc nhiều khu vực.',
@@ -42,7 +43,7 @@ function receive(data, inputs = true) {
 async function sync() {
   if (!state.data?.researchSessionId) return false;
   const version = ++writeVersion;
-  const snapshot = { researchSessionId: state.data.researchSessionId, ids: [...state.ids], focusedLeadId: state.focused, view: state.view, query: state.data.query, scope: state.data.scope };
+  const snapshot = { researchSessionId: state.data.researchSessionId, ids: [...state.ids], focusedLeadId: state.focused, view: state.view, query: state.data.query, scope: state.data.scope, page:state.data.page };
   state.writing += 1; state.synced = false; render();
   try {
     writes = writes.catch(() => {}).then(() => tool('set_research_selection', snapshot));
@@ -77,6 +78,8 @@ function render() {
   $('status').textContent = state.writing ? 'Đang đồng bộ lựa chọn…' : `${state.data.total} nguồn · chưa xác minh${connected && state.ids.length && state.synced ? ' · ChatGPT đã nhận lựa chọn' : ''}`;
   const latest = state.data.leads.map(lead => lead.collectedAt).sort().at(-1);
   $('freshness').textContent = latest ? `Lần đọc nguồn gần nhất: ${localDate(latest)} (giờ Việt Nam). Đọc lại không có nghĩa là đã xác nhận còn bán.` : '';
+  const counts=state.data.counts;
+  $('coverage').textContent = `${counts.usableGroups}/100 nhóm tin đủ điều kiện · ${counts.projects}/10 dự án · ${counts.collected} nguồn thu thập · ${counts.needsContext} cần đối chiếu · ${counts.archive} lưu trữ`;
   $('selection').hidden = state.ids.length === 0;
   $('selected-label').textContent = `Đã chọn ${state.ids.length} nguồn · tối đa 3`;
   $('selected-names').textContent = state.ids.map(getLead).filter(Boolean).map(lead => lead.label).join(' · ');
@@ -84,18 +87,32 @@ function render() {
   $('cards').replaceChildren();
   for (const lead of state.data.leads) {
     const card = node('article', undefined, `card${state.ids.includes(lead.id) ? ' selected' : ''}`), top = node('div', undefined, 'card-top');
-    top.append(node('span', lead.sourceStatus === 'source-expired' ? 'Nguồn hết hạn' : 'Chưa xác minh', 'badge'), node('span', `${lead.source} · ${date(lead.publishedAt)}`));
+    top.append(node('span', lead.quality?.state === 'archive' ? 'Lưu trữ · chưa xác minh' : lead.quality?.state === 'usable' ? 'Đã đối chiếu theo nguồn' : 'Cần đối chiếu', 'badge'), node('span', `${lead.source} · ${date(lead.publishedAt)}`));
     const actions = node('div', undefined, 'card-actions'), select = button(state.ids.includes(lead.id) ? 'Đã chọn' : 'Chọn so sánh', () => toggle(lead.id));
     select.dataset.selectKey = lead.id; select.setAttribute('aria-label', `Chọn so sánh ${lead.label}`); select.setAttribute('aria-pressed', String(state.ids.includes(lead.id))); select.disabled = state.sending || (!state.ids.includes(lead.id) && state.ids.length >= 3);
     actions.append(button('Xem nguồn', () => detail(lead.id), 'primary'), select);
-    card.append(top, node('h3', lead.label), facts(lead), node('p', 'Còn bán, giấy tờ và đáp ứng yêu cầu: chưa xác nhận.', 'note'), node('p', `Đọc nguồn: ${localDate(lead.collectedAt)}`, 'note'), actions); $('cards').append(card);
+      card.append(top, node('h3', lead.label));
+      if(lead.quality?.projectLabel&&lead.quality.projectLabel!==lead.label)card.append(node('p',`Dự án đã đối chiếu: ${lead.quality.projectLabel}`,'note'));
+      card.append(facts(lead), node('p', 'Còn bán, giấy tờ và đáp ứng yêu cầu: chưa xác nhận.', 'note'), node('p', `Đọc nguồn: ${localDate(lead.collectedAt)}`, 'note'), actions); $('cards').append(card);
   }
+  $('pages').hidden=state.view!=='list'||state.data.pages<=1;
+  $('page-label').textContent=`Trang ${state.data.page}/${state.data.pages}`;
+  $('previous').disabled=state.data.page<=1; $('next').disabled=state.data.page>=state.data.pages;
   $('empty').hidden = state.data.total > 0;
+  $('empty').querySelector('h2').textContent = state.data.scope==='usable' ? 'Chưa có tin đủ điều kiện trong phạm vi này' : 'Chưa có nguồn trong phạm vi này';
+  $('reset').textContent=state.data.scope==='usable'?'Xem nguồn cần đối chiếu':'Xem tất cả nguồn';
   $('list-panel').hidden = state.view !== 'list'; $('detail-panel').hidden = state.view !== 'details'; $('comparison-panel').hidden = state.view !== 'comparison';
   if (state.view === 'details') {
     const lead = getLead(state.focused), body = $('detail-body'); body.replaceChildren();
     if (lead) {
       $('detail-title').textContent = lead.label; body.append(facts(lead), node('p', `Bài gốc: ${date(lead.publishedAt)} · Sửa theo nguồn: ${date(lead.editedAt)} · Lần thu thập: ${localDate(lead.collectedAt)}`, 'note'));
+      if(lead.quality){
+        const q=lead.quality;
+        if(q.advertisedPriceVnd!==null)body.append(node('p',`Đã đối chiếu theo nguồn: giá chào ${new Intl.NumberFormat('vi-VN').format(q.advertisedPriceVnd)} VND · ${q.advertisedAreaM2} m². Thông tin nguồn, chưa phải giá giao dịch.`,'note'));
+        body.append(node('p',q.availabilityConfirmed?`Nhà cung cấp báo còn bán: ${date(q.supplierConfirmedAt)}. Đây là xác nhận từ nguồn, không phải kiểm chứng độc lập.`:'Chưa có xác nhận còn bán từ chủ nhà/đơn vị được ủy quyền trong 7 ngày.','note'));
+        if(q.duplicateCount>1)body.append(node('p',`${q.duplicateCount} nguồn trong một nhóm ${q.duplicateStatus==='confirmed'?'đã xác nhận trùng':'nghi trùng'}. Giữ riêng từng bằng chứng.`,'notice'));
+        q.reasons.forEach(reason=>body.append(node('p',qualityReasons[reason],'note')));
+      }
       const list = node('ul', undefined, 'risk-list'); lead.risks.forEach(key => list.append(node('li', riskNames[key]))); list.append(node('li', 'Cần xác nhận còn bán, đúng căn/tòa, hoàn thành và giấy tờ; không coi các biểu thức nguồn là thông số đã duyệt.')); body.append(list);
       const link = node('a', 'Mở bài gốc trên diễn đàn ↗', 'source-link'); link.href = lead.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (hosted) link.addEventListener('click', event => { event.preventDefault(); void bridge.openLink({ url: lead.sourceUrl }).catch(() => error('Chưa mở được nguồn. Hãy thử lại.')); });
@@ -119,8 +136,10 @@ function hostContext(context = {}) {
   if (context.safeAreaInsets) document.documentElement.style.setProperty('--safe-bottom', `${Math.max(0, context.safeAreaInsets.bottom)}px`);
   $('expand').hidden = !host.availableDisplayModes?.includes('fullscreen') || host.displayMode === 'fullscreen';
 }
-$('filters').addEventListener('submit', event => { event.preventDefault(); void search({ query: $('query').value, scope: $('scope').value, view: 'list', focusedLeadId: null }); });
-$('reset').addEventListener('click', () => void search({ query: '', scope: 'all', view: 'list', focusedLeadId: null }));
+$('previous').addEventListener('click',()=>void search({page:state.data.page-1,view:'list',focusedLeadId:null}));
+$('next').addEventListener('click',()=>void search({page:state.data.page+1,view:'list',focusedLeadId:null}));
+$('filters').addEventListener('submit', event => { event.preventDefault(); void search({ page:1,query: $('query').value, scope: $('scope').value, view: 'list', focusedLeadId: null }); });
+$('reset').addEventListener('click', () => void search({ page:1,query: '', scope: state.data?.scope==='usable'?'research':'all', view: 'list', focusedLeadId: null }));
 $('clear').addEventListener('click', () => { state.ids = []; if (state.view === 'comparison') state.view = 'list'; render(); void sync(); });
 $('compare').addEventListener('click', () => void compare());
 document.querySelectorAll('[data-back]').forEach(item => item.addEventListener('click', () => { state.view = 'list'; state.focused = null; render(); void sync(); $('query').focus(); }));
@@ -143,8 +162,8 @@ if (hosted) {
   $('website-nav').hidden = false;
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
   applyDocumentTheme(dark ? 'dark' : 'light'); document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  void search().then(async () => {
-    const id = new URLSearchParams(location.search).get('source');
-    if (id && getLead(id)) await detail(id);
-  });
+  const params=new URLSearchParams(location.search);
+  const initialScope=params.has('source')?'all':(['usable','research','archive','all'].includes(params.get('scope'))?params.get('scope'):'usable');
+  const focusedLeadId=params.get('source');
+  void search({scope:initialScope,...(focusedLeadId?{focusedLeadId,view:'details'}:{})});
 }

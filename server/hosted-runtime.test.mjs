@@ -45,7 +45,7 @@ test('hosted research survives instance replacement and withdraws changed source
   try {
     const db = new SharedStore(); db.records = new ResearchLinks(fixture).localRecords();
     const r1 = new ResearchLinks({}), r2 = new ResearchLinks({}), a = new HostedRuntime(db), b = new HostedRuntime(db);
-    const initial = await a.run('research', {}, () => r1.show()), sid = initial.researchSessionId;
+    const initial = await a.run('research', {}, () => r1.show({scope:'all'})), sid = initial.researchSessionId;
     const ids = initial.leads.slice(0, 2).map(lead => lead.id);
     await b.run('research', { researchSessionId: sid }, () => r2.write(sid, ids, { view: 'comparison' }));
     assert.deepEqual((await a.run('research', { researchSessionId: sid }, () => r1.compare({ researchSessionId: sid }))).leads.map(x => x.id), ids);

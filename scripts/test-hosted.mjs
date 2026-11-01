@@ -16,6 +16,7 @@ for (let attempt = 0; attempt < 50; attempt += 1) {
   try {
     await store.request('rpc/load_catalogue', { method: 'POST', body: {} });
     await store.request('collection_sources?select=failure_count,retry_after&limit=1');
+    await store.request('candidate_assessments?select=candidate_id&limit=1');
     await store.request('rpc/load_source_discovery', { method:'POST', body:{p_source:'otofun'} });
     ready = true; break;
   }

@@ -7,7 +7,7 @@ import { researchFixture } from './test-support/research-fixture.mjs';
 test('research exposes only a curated source projection, preserving unknowns and rate basis', () => {
   const f = researchFixture();
   try {
-    const r = new ResearchLinks(f), data = r.search();
+    const r = new ResearchLinks(f), data = r.search({scope:'all'});
     assert.equal(data.total, 3); assert.equal(data.mode, 'research');
     const lead = data.leads[0];
     assert.equal(lead.priceVnd, null); assert.equal(lead.areaM2, null); assert.equal(lead.bedrooms, null);
@@ -16,7 +16,7 @@ test('research exposes only a curated source projection, preserving unknowns and
     assert.equal(lead.publishedAt, '2026-01-01'); assert.equal(lead.editedAt, '2026-01-02');
     const encoded = JSON.stringify(data);
     for (const secret of ['PRIVATE BODY', 'PRIVATE AUTHOR', 'CONTACT SECRET', 'fingerprint', 'sourceItemId']) assert.ok(!encoded.includes(secret));
-    assert.equal(r.search({ query: 'my dinh 2' }).total, 1);
+    assert.equal(r.search({ query: 'my dinh 2',scope:'all' }).total, 1);
     assert.equal(r.search({ scope: 'expired' }).total, 1);
   } finally { f.cleanup(); }
 });
@@ -25,7 +25,7 @@ test('research sessions isolate selections, preserve query and support compariso
   const f = researchFixture();
   try {
     let clock = Date.now(); const r = new ResearchLinks({ ...f, clock: () => clock });
-    const a = r.show(), b = r.show(), ids = a.leads.slice(0, 2).map(lead => lead.id);
+    const a = r.show({scope:'all'}), b = r.show({scope:'all'}), ids = a.leads.slice(0, 2).map(lead => lead.id);
     r.write(a.researchSessionId, ids, { focusedLeadId: ids[0], view: 'details' });
     assert.deepEqual(r.compare({ researchSessionId: a.researchSessionId }).leads.map(lead => lead.id), ids);
     assert.deepEqual(r.context(b.researchSessionId).selectedLeadIds, []);
@@ -44,7 +44,7 @@ test('research sessions isolate selections, preserve query and support compariso
 test('changed, expired or withdrawn source links leave results and temporary selections', () => {
   const f = researchFixture();
   try {
-    const r = new ResearchLinks(f), data = r.show(), ids = data.leads.slice(0, 2).map(lead => lead.id);
+    const r = new ResearchLinks(f), data = r.show({scope:'all'}), ids = data.leads.slice(0, 2).map(lead => lead.id);
     r.write(data.researchSessionId, ids, { view: 'comparison' });
     const raw = JSON.parse(f.db.prepare('SELECT data FROM item WHERE id=?').get('otofun:1:post-1').data);
     raw.text = 'CHANGED PRIVATE BODY';
@@ -72,4 +72,26 @@ test('research rejects forged source URLs and extra private manifest fields', ()
     f.manifest.entries[0].description = 'SHOULD NEVER BE PUBLIC'; f.save();
     assert.throws(() => r.records());
   } finally { f.cleanup(); }
+});
+
+test('default research view does not count unresolved source records as usable apartment supply',()=>{
+  const f=researchFixture();
+  try { const result=new ResearchLinks(f).show(); assert.equal(result.scope,'usable'); assert.equal(result.total,0); assert.equal(result.counts.collected,3); }
+  finally {f.cleanup();}
+});
+
+test('pagination preserves selections across pages and filtering returns to page one',()=>{
+  const r=new ResearchLinks({clock:()=>Date.now()});
+  r.records=()=>Array.from({length:43},(_,i)=>({id:`record-${i}`,label:`Project ${i}`,quality:{state:'needs-context',clusterId:`c-${i}`}}));
+  const first=r.show({scope:'all'}),id=first.researchSessionId;
+  assert.equal(first.leads.length,20);assert.equal(first.total,43);assert.equal(first.pages,3);assert.equal(first.counts.collected,43);
+  const second=r.show({researchSessionId:id,page:2});
+  assert.equal(second.leads[0].id,'record-20');
+  const chosen=r.write(id,['record-20'],{page:2,query:'',scope:'all'});
+  assert.equal(chosen.page,2);assert.equal(chosen.contextLeads[0].id,'record-20');
+  const third=r.show({researchSessionId:id,page:3});
+  assert.equal(third.leads.length,3);assert.deepEqual(third.selectedLeadIds,['record-20']);
+  const filtered=r.show({researchSessionId:id,query:'Project 1'});
+  assert.equal(filtered.page,1);assert.equal(filtered.counts.collected,43);
+  assert.deepEqual(filtered.selectedLeadIds,['record-20']);
 });

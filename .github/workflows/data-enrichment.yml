@@ -3,8 +3,15 @@ on:
   schedule:
     # 06:17 Asia/Ho_Chi_Minh; schedules may be delayed by GitHub.
     - cron: '17 23 * * *'
+    # Source freshness sweeps at 02:17, 10:17 and 18:17 Vietnam time.
+    - cron: '17 3,11,19 * * *'
   workflow_dispatch:
     inputs:
+      mode:
+        description: Discover new ads or refresh existing source evidence
+        type: choice
+        options: ['discovery', 'refresh']
+        default: discovery
       pages:
         description: Marketplace index pages for this bounded run
         type: choice
@@ -39,9 +46,16 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          RUN_MODE: ${{ inputs.mode || (github.event.schedule == '17 3,11,19 * * *' && 'refresh' || 'discovery') }}
           DISCOVERY_PAGES: ${{ inputs.pages || '3' }}
           DISCOVERY_THREADS: ${{ inputs.threads || '12' }}
-        run: npm run pipeline -- collect --apply --pages "$DISCOVERY_PAGES" --threads "$DISCOVERY_THREADS"
+        shell: bash
+        run: |
+          if [[ "$RUN_MODE" == "refresh" ]]; then
+            npm run pipeline -- collect --apply --refresh-only --refresh-limit 12
+          else
+            npm run pipeline -- collect --apply --pages "$DISCOVERY_PAGES" --threads "$DISCOVERY_THREADS"
+          fi
       - name: Report run freshness
         if: always()
         env:
